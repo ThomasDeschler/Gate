@@ -157,7 +157,8 @@ void GateTLEDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* 
     G4double distance = step->GetStepLength();
     G4double energy = PreStep->GetKineticEnergy();
     double muenOverRho = mMaterialHandler->GetMuEnOverRho(PreStep->GetMaterialCutsCouple(), energy);
-    G4double dose = ConversionFactor*energy*muenOverRho*distance/VoxelVolume;
+    //G4double dose = ConversionFactor*energy*muenOverRho*distance/VoxelVolume;
+    G4double dose = ConversionFactor*energy*muenOverRho*distance/mDoseImage.GetVoxelVolume();
     G4double edep = 0.1*energy*muenOverRho*distance*PreStep->GetMaterial()->GetDensity()/(g/cm3);
     bool sameEvent=true;
 
