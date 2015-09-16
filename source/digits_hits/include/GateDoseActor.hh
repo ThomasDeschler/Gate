@@ -17,6 +17,8 @@ See GATE/LICENSE.txt for further details
   \date	March 2011
  */
 
+  // WORK IN PROGRESS (september 2015) : Dose calculation in inhomogeneous volume added by Thomas DESCHLER (thomas.deschler@iphc.cnrs.fr)
+
 #ifndef GATEDOSEACTOR_HH
 #define GATEDOSEACTOR_HH
 
@@ -27,6 +29,7 @@ See GATE/LICENSE.txt for further details
 #include "G4UnitsTable.hh"
 #include "GateDoseActorMessenger.hh"
 #include "GateImageWithStatistic.hh"
+
 
 class G4EmCalculator;
 
@@ -73,6 +76,8 @@ class GateDoseActor : public GateVImageActor
   virtual void Initialize(G4HCofThisEvent*){}
   virtual void EndOfEvent(G4HCofThisEvent*){}
 
+  //Added for Voxel algorithm
+  std::pair<double,G4VSolid*> VolumeIteration(G4LogicalVolume* MotherLV,int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation);//,int Generation=0);
 
 protected:
   GateDoseActor(G4String name, G4int depth=0);
@@ -107,6 +112,16 @@ protected:
   G4String mNbOfHitsFilename;
 
   G4EmCalculator * emcalc;
+
+  //Added for Voxel algorithm
+  double VoxelMass;
+  double VoxelDensity;
+  double VoxelVolume;
+  bool   FirstTime;
+  G4VPhysicalVolume* DAPV;
+  G4LogicalVolume* DALV;
+  G4String space;
+
 };
 
 MAKE_AUTO_CREATOR_ACTOR(DoseActor,GateDoseActor)
