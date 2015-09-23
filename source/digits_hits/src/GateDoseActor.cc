@@ -31,6 +31,8 @@
 #include <G4PhysicalVolumeStore.hh>
 #include <G4VSolid.hh>
 #include <G4Transform3D.hh>
+#include <G4SmartVoxelHeader.hh>
+#include <G4VPVParameterisation.hh>
 
 //-----------------------------------------------------------------------------
 GateDoseActor::GateDoseActor(G4String name, G4int depth):
@@ -58,6 +60,7 @@ GateDoseActor::GateDoseActor(G4String name, G4int depth):
 
   //Added for algorithm
   FirstTime=true;
+  matrixFirstTime=true;
   space="";
 }
 //-----------------------------------------------------------------------------
@@ -264,16 +267,37 @@ void GateDoseActor::UserPreTrackActionInVoxel(const int /*index*/, const G4Track
 }
 //-----------------------------------------------------------------------------
 
-std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* MotherLV,int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation)//,int Generation)
+double RealZero(double someValue,double anotherValue=0.,double relativeError=0.05)
 {
+  if(anotherValue!=0.)
+  {
+    if(someValue<(anotherValue*relativeError)
+    && someValue>(-anotherValue*relativeError))
+      someValue=0.0;
+    else if(someValue-anotherValue< anotherValue*relativeError
+         && someValue-anotherValue>-anotherValue*relativeError)
+      someValue=anotherValue;
+  }
+  else if(someValue< std::numeric_limits<double>::epsilon()
+        &&someValue>-std::numeric_limits<double>::epsilon())
+      someValue=0.0;
+  return someValue;
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(const G4VPhysicalVolume* motherPV,int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation)
+{
+  G4LogicalVolume* MotherLV(motherPV->GetLogicalVolume());
+  G4VSolid*        MotherSV(MotherLV->GetSolid());
+  G4VSolid*         MotherDaughterSV(MotherLV->GetSolid());
   double MotherMass(0.);
   double MotherDensity(MotherLV->GetMaterial()->GetDensity());
   double MotherProgenyMass(0.);
-  double DaughtersMass(0.);
+  //double DaughtersMass(0.);
   double DaughtersCubicVolume(0.);
-  double MotherDaughtersMass(0.);
-  G4VSolid* MotherSV(MotherLV->GetSolid());
-  G4VSolid* MotherDaughterSV(MotherLV->GetSolid());
+  //double MotherDaughtersMass(0.);
+
 
   if(Generation>0)
     MotherSV=new G4IntersectionSolid(MotherSV->GetName()+"∩"+DALV->GetSolid()->GetName(),
@@ -283,34 +307,35 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* Moth
                                  MotherTranslation);
   MotherDaughterSV=MotherSV;
 
-  space+="    ";
+  space+="   ";
 
   if(MotherLV->GetSolid()->GetCubicVolume()<MotherSV->GetCubicVolume())
-    GateWarning(MotherLV->GetSolid()->GetName()<<" overlaps the DoseActor associated volume !"<<Gateendl
+    GateWarning(MotherLV->GetSolid()->GetName()<<" overlaps the DoseActor associated volume ("<<DALV->GetSolid()->GetName()<<") !"<<Gateendl
               <<"               The results may not be accurate.");
 
-  GateDebugMessage("Actor", 5,space<<"* Mother : "<<MotherLV->GetName()<<" (generation n°"<<Generation<<") :"<<Gateendl
-        <<space<<"    Volume             : "<<G4BestUnit(MotherLV->GetSolid()->GetCubicVolume(),"Volume")<<Gateendl
-        <<space<<"    Volume overlap DA  : "<<G4BestUnit(MotherSV->GetCubicVolume(),"Volume")<<Gateendl
-        <<space<<"    Density            : "<<G4BestUnit(MotherDensity,"Volumic Mass")<<Gateendl
-        <<space<<"    Has "<<MotherLV->GetNoDaughters()<<" daughter(s)"<<Gateendl);
+  G4cout<<space<<"* Mother : "<<MotherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
+        <<space<<"    Volume             : "<<G4BestUnit(MotherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
+        <<space<<"    Volume overlap DA  : "<<G4BestUnit(MotherSV->GetCubicVolume(),"Volume")<<G4endl
+        <<space<<"    Density            : "<<G4BestUnit(MotherDensity,"Volumic Mass")<<G4endl
+        <<space<<"    Parameterised ?    : "<<motherPV->IsParameterised()<<G4endl
+        <<space<<"    Has "<<MotherLV->GetNoDaughters()<<" daughter(s)"<<G4endl;
 
   for(int i=0;i<MotherLV->GetNoDaughters();i++)
   {
-    G4VPhysicalVolume*  DaughterPV(MotherLV->GetDaughter(i));
-    G4LogicalVolume*    DaughterLV(DaughterPV->GetLogicalVolume());
+    G4VPhysicalVolume*  daughterPV(MotherLV->GetDaughter(i));
+    G4LogicalVolume*    DaughterLV(daughterPV->GetLogicalVolume());
     G4VSolid*           DaughterSV(DaughterLV->GetSolid());
     G4VSolid*           DaughterUnionSV(DaughterLV->GetSolid());
 
-    GateDebugMessage("Actor", 5,space<<"   * Daughter n°"<<i<<" : "<<DaughterLV->GetName()<<" :"<<Gateendl
-        <<space<<"       Has "<<DaughterLV->GetNoDaughters()<<" daughter(s)"<<Gateendl);
+    G4cout<<space<<"   * Daughter n°"<<i<<" : "<<DaughterLV->GetName()<<" :"<<G4endl
+          <<space<<"       Has "<<DaughterLV->GetNoDaughters()<<" daughter(s)"<<G4endl;
 
-    G4RotationMatrix DaughterRotation(DaughterPV->GetObjectRotationValue());
-    G4ThreeVector    DaughterTranslation(DaughterPV->GetObjectTranslation());
+    G4RotationMatrix DaughterRotation(daughterPV->GetObjectRotationValue());
+    G4ThreeVector    DaughterTranslation(daughterPV->GetObjectTranslation());
 
     if(Generation>0)
     {
-      DaughterTranslation=MotherTranslation+DaughterPV->GetObjectTranslation().transform(MotherRotation);
+      DaughterTranslation=MotherTranslation+daughterPV->GetObjectTranslation().transform(MotherRotation);
       DaughterRotation=DaughterRotation.transform(MotherRotation);
     }
 
@@ -323,7 +348,7 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* Moth
                                        DaughterTranslation); //Global translation
 
     if(MotherLV->GetDaughter(i)->GetLogicalVolume()->GetSolid()->GetCubicVolume()>DaughterSV->GetCubicVolume())
-      GateWarning(MotherLV->GetDaughter(i)->GetLogicalVolume()->GetSolid()->GetName()<<" overlaps the DoseActor associated volume !"<<Gateendl
+      GateWarning(MotherLV->GetDaughter(i)->GetLogicalVolume()->GetSolid()->GetName()<<" overlaps the DoseActor associated volume ("<<DALV->GetSolid()->GetName()<<") !"<<Gateendl
                 <<"               The results may not be accurate.");
 
     double DaughterProgenyMass(0.);
@@ -333,7 +358,7 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* Moth
 
     if(DaughterLV->GetNoDaughters()>0)
     {
-      std::pair<double,G4VSolid*> DaughterIteration(VolumeIteration(DaughterLV,Generation+1,DaughterRotation,DaughterTranslation));
+      std::pair<double,G4VSolid*> DaughterIteration(VolumeIteration(daughterPV,Generation+1,DaughterRotation,DaughterTranslation));
       DaughterProgenyMass=DaughterIteration.first;
       DaughterUnionSV=DaughterIteration.second;
     }
@@ -347,8 +372,8 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* Moth
     MotherDaughterSV=new G4UnionSolid(MotherSV->GetName()+"∪"+DaughterUnionSV->GetName(),
                                       MotherSV, // Already overlapped with DA volume
                                       DaughterUnionSV, // From DaughterIteration
-                                      DaughterPV->GetObjectRotation(), // Local rotation
-                                      DaughterPV->GetObjectTranslation()); // Local translation
+                                      daughterPV->GetObjectRotation(), // Local rotation
+                                      daughterPV->GetObjectTranslation()); // Local translation
 
     // Substraction Mother-Daughter
     //G4cout<<space<<"  MotherSV ("<<MotherSV->GetName()<<") volume      : "<<G4BestUnit(MotherSV->GetCubicVolume(),"Volume")<<G4endl;
@@ -356,21 +381,49 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* Moth
     MotherSV=new G4SubtractionSolid(MotherSV->GetName()+"-"+DaughterSV->GetName(),
                                      MotherSV, // Already overlapped with DA volume
                                      DaughterSV);/*, // Already overlapped with DA volume
-                                     DaughterPV->GetFrameRotation(), // Local rotation
-                                     DaughterPV->GetFrameTranslation()); // Local translation*/
+                                     daughterPV->GetFrameRotation(), // Local rotation
+                                     daughterPV->GetFrameTranslation()); // Local translation*/
     //G4cout<<space<<"  "<<MotherSV->GetName()<<" volume      : "<<G4BestUnit(MotherSV->GetCubicVolume(),"Volume")<<G4endl;
 
  
 
-    GateDebugMessage("Actor", 5,space<<"       Original volume   : "<<G4BestUnit(DaughterLV->GetSolid()->GetCubicVolume(),"Volume")<<Gateendl
-          <<space<<"       DA overlap volume   : "<<G4BestUnit(DaughterCubicVolume,"Volume")<<Gateendl
-          <<space<<"       Density             : "<<G4BestUnit(DaughterDensity,"Volumic Mass")<<Gateendl
-          <<space<<"       Mass                : "<<G4BestUnit(DaughterCubicVolume*DaughterDensity,"Mass")<<Gateendl
-          <<space<<"       Progeny Mass        : "<<G4BestUnit(DaughterProgenyMass,"Mass")<<Gateendl
-          <<space<<"       Relative translation: X="<<G4BestUnit(DaughterPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(DaughterPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(DaughterPV->GetTranslation().getZ(),"Length")<<Gateendl
-          <<space<<"       Absolute translation: X="<<G4BestUnit(DaughterTranslation.getX(),"Length")<<",Y="<<G4BestUnit(DaughterTranslation.getY(),"Length")<<",Z="<<G4BestUnit(DaughterTranslation.getZ(),"Length")<<Gateendl
-          <<space<<"       Relative rotation   : Phi= "<<DaughterPV->GetObjectRotationValue().getPhi()<<", Theta= "<<DaughterPV->GetObjectRotationValue().getTheta()<<", Psi= "<<DaughterPV->GetObjectRotationValue().getPsi()<<Gateendl
-          <<space<<"       Absolute rotation   : Phi= "<<DaughterRotation.getPhi()<<", Theta= "<<DaughterRotation.getTheta()<<", Psi= "<<DaughterRotation.getPsi()<<Gateendl);
+    G4cout<<space<<"       Original volume   : "<<G4BestUnit(DaughterLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
+          <<space<<"       DA overlap volume   : "<<G4BestUnit(DaughterCubicVolume,"Volume")<<G4endl
+          <<space<<"       Density             : "<<G4BestUnit(DaughterDensity,"Volumic Mass")<<G4endl
+          <<space<<"       Mass                : "<<G4BestUnit(DaughterCubicVolume*DaughterDensity,"Mass")<<G4endl
+          <<space<<"       Progeny Mass        : "<<G4BestUnit(DaughterProgenyMass,"Mass")<<G4endl
+          <<space<<"       Relative translation: X="<<G4BestUnit(daughterPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(daughterPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(daughterPV->GetTranslation().getZ(),"Length")<<G4endl
+          <<space<<"       Absolute translation: X="<<G4BestUnit(DaughterTranslation.getX(),"Length")<<",Y="<<G4BestUnit(DaughterTranslation.getY(),"Length")<<",Z="<<G4BestUnit(DaughterTranslation.getZ(),"Length")<<G4endl
+          <<space<<"       Relative rotation   : Phi= "<<daughterPV->GetObjectRotationValue().getPhi()<<", Theta= "<<daughterPV->GetObjectRotationValue().getTheta()<<", Psi= "<<daughterPV->GetObjectRotationValue().getPsi()<<G4endl
+          <<space<<"       Absolute rotation   : Phi= "<<DaughterRotation.getPhi()<<", Theta= "<<DaughterRotation.getTheta()<<", Psi= "<<DaughterRotation.getPsi()<<G4endl;
+
+
+    G4cout<<space<<"       Parameterised ?     : "<<daughterPV->IsParameterised()<<G4endl;
+    G4cout<<space<<"       Replicated ?        : "<<daughterPV->IsReplicated()<<G4endl;
+    if(daughterPV->IsParameterised())
+    {
+      G4cout<<space<<"       daughterPV->GetName()         : "<<daughterPV->GetName() <<G4endl;
+      G4cout<<space<<"       daughterPV->GetMultiplicity() : "<<daughterPV->GetMultiplicity() <<G4endl;
+      G4VPVParameterisation* daughterParameterisation(daughterPV->GetParameterisation());
+      double daughterParameterisationMass(0.);
+      for(long int i=0;i<daughterPV->GetMultiplicity();i++)
+      {
+        G4VSolid* daughterSV(daughterParameterisation->ComputeSolid(i,daughterPV));
+        daughterParameterisation->ComputeTransformation(i,daughterPV);
+        daughterParameterisationMass+=daughterParameterisation->ComputeMaterial(i,daughterPV)->GetDensity()*daughterSV->GetCubicVolume();
+
+        /*G4cout<<space<<"       Voxel n°"<<i<<" :"<<G4endl;
+        G4cout<<space<<"         CubicVolume : "<<G4BestUnit(daughterParameterisation->ComputeSolid(i,daughterPV)->GetCubicVolume(),"Volume")<<G4endl;
+        G4cout<<space<<"         Material    : "<<daughterParameterisation->ComputeMaterial(i,daughterPV)->GetName()<<G4endl;
+        G4cout<<space<<"         Translation : X="<<G4BestUnit(daughterPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(daughterPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(daughterPV->GetTranslation().getZ(),"Length")<<G4endl;*/
+      }
+      G4cout<<space<<"       daughterPV total mass : "<<G4BestUnit(daughterParameterisationMass,"Mass")<<G4endl;
+      //G4cout<<space<<"       voxelHeader->AllSlicesEqual () :"<<voxelHeader->AllSlicesEqual () <<G4endl; // Seg fault
+    }
+
+
+
+
 
     MotherProgenyMass+=DaughterProgenyMass;
     DaughtersCubicVolume=DaughtersCubicVolume+DaughterCubicVolume;
@@ -396,6 +449,235 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(G4LogicalVolume* Moth
 
   return std::make_pair(MotherProgenyMass,MotherDaughterSV);
 }
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation,const int index)
+{
+  //FIXME : Doesn't work with daughter overlapping its mother.
+  if(Generation>0)
+    space+="   ";
+
+  G4LogicalVolume* motherLV(motherPV->GetLogicalVolume());
+  double motherMass(0.);
+  double motherDensity(motherLV->GetMaterial()->GetDensity());
+  double motherProgenyMass(0.);
+  double motherProgenyCubicVolume(0.);
+  G4VSolid* motherSV(motherLV->GetSolid());
+
+  G4Box doselSV("Voxel_index",//FIXME convertir i en string
+                mDoseImage.GetValueImage().GetVoxelSize().getX()/2.0,
+                mDoseImage.GetValueImage().GetVoxelSize().getY()/2.0,
+                mDoseImage.GetValueImage().GetVoxelSize().getZ()/2.0);
+
+  // Calculation of voxel's local rotation and translation
+  G4RotationMatrix doselRotation(mDoseImage.GetValueImage().GetTransformMatrix());
+  G4ThreeVector    doselTranslation(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index));
+
+  if(Generation>0)
+    doselTranslation-=motherTranslation;
+
+  // Parameterisation //////////////////////////////////////////////////////
+  //G4cout<<space<<"       Parameterised ?     : "<<motherPV->IsParameterised()<<G4endl;
+  //G4cout<<space<<"       Replicated ?        : "<<motherPV->IsReplicated()<<G4endl;
+  double doselCubicVolume(doselSV.GetCubicVolume());
+  double doselMass(0.);
+  if(motherPV->IsParameterised())
+  {
+    G4cout<<space<<"       motherPV->GetName()         : "<<motherPV->GetName() <<G4endl;
+    G4cout<<space<<"       motherPV->GetMultiplicity() : "<<motherPV->GetMultiplicity() <<G4endl;
+    G4VPVParameterisation* motherParameterisation(motherPV->GetParameterisation());
+    double doselReconstructedCubicVolume(0.); // For control only
+    int nbVoxelInsideDosel(0);
+
+    if(matrixFirstTime)
+    {
+      G4cout<<space<<" Computing data form parameterised volume, please wait."<<G4endl;
+      matrixFirstTime=false;
+      voxelMatrix.resize(motherPV->GetMultiplicity(),0.);
+      voxelAbsoluteTranslation.resize(motherPV->GetMultiplicity());
+      voxelCubicVolume.resize(motherPV->GetMultiplicity(),0.);
+      voxelMass.resize(motherPV->GetMultiplicity(),0.);
+      for(signed long int i=0;i<motherPV->GetMultiplicity();i++)
+      {
+        voxelMatrix[i]=i;
+        motherParameterisation->ComputeTransformation(i,motherPV);
+        voxelAbsoluteTranslation[i]=motherPV->GetTranslation();
+        voxelCubicVolume[i]=motherParameterisation->ComputeSolid(i,motherPV)->GetCubicVolume();
+        voxelMass[i]=motherParameterisation->ComputeMaterial(i,motherPV)->GetDensity()*voxelCubicVolume[i];
+      }
+    }
+
+    G4cout<<G4endl<<space<<"* Computing the parameterised volume for dosel n°"<<index<<", please wait."<<G4endl;
+
+    //for(long int i=0;i<motherPV->GetMultiplicity();i++)
+    for(long int i=0;i<motherPV->GetMultiplicity();i++)
+      if(voxelMatrix[i]!=-1)
+      {
+        //G4cout<<space<<"       voxelMatrix["<<i<<"] : "<<voxelMatrix[i]<<G4endl;
+        G4ThreeVector voxelTranslation=voxelAbsoluteTranslation[i]-mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index);
+
+        //G4cout<<space<<"         Dosel->Voxel Translation : X="<<G4BestUnit(voxelTranslation.getX(),"Length")<<",Y="<<G4BestUnit(voxelTranslation.getY(),"Length")<<",Z="<<G4BestUnit(voxelTranslation.getZ(),"Length")<<G4endl;
+        //G4cout<<space<<"         Mother->Voxel Translation : X="<<G4BestUnit(motherPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(motherPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(motherPV->GetTranslation().getZ(),"Length")<<G4endl;
+
+        if(doselSV.Inside(voxelTranslation)==kInside) //FIXME : This method takes way too much time.
+        {
+          nbVoxelInsideDosel++;
+
+          //if(i%100000==0) std::cout<<i*100/voxelMatrix.size()<<"%\r"<<std::flush;
+
+          doselReconstructedCubicVolume+=voxelCubicVolume[i];
+          doselMass+=voxelMass[i];
+
+          voxelMatrix[i]=-1;
+        }
+
+        /*G4cout<<space<<"       Voxel n°"<<i<<" :"<<G4endl;
+        G4cout<<space<<"         CubicVolume : "<<G4BestUnit(motherParameterisation->ComputeSolid(i,motherPV)->GetCubicVolume(),"Volume")<<G4endl;
+        G4cout<<space<<"         Material    : "<<motherParameterisation->ComputeMaterial(i,motherPV)->GetName()<<G4endl;
+        G4cout<<space<<"         Translation : X="<<G4BestUnit(motherPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(motherPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(motherPV->GetTranslation().getZ(),"Length")<<G4endl;*/
+
+      }
+
+    G4cout<<G4endl;
+    G4cout<<space<<"       Nb of voxels inside dosel : "<<nbVoxelInsideDosel<<"/"<<motherPV->GetMultiplicity()<<" ("<<nbVoxelInsideDosel*100/motherPV->GetMultiplicity()<<"%)"<<G4endl;
+    G4cout<<space<<"       Dosel original cubic volume : "<<G4BestUnit(doselCubicVolume,"Volume")<<G4endl;
+    G4cout<<space<<"       Dosel reconstructed cubic volume : "<<G4BestUnit(doselReconstructedCubicVolume,"Volume")<<G4endl;
+    G4cout<<space<<"       Dosel mass : "<<G4BestUnit(doselMass,"Mass")<<G4endl;
+  }
+  //////////////////////////////////////////////////////////////////////////
+  else
+  {
+    // Overlap Mother-Dosel
+    motherSV=new G4IntersectionSolid(motherSV->GetName()+"∩"+doselSV.GetName(),
+                                    motherSV,
+                                    &doselSV, 
+                                    &motherRotation, // Local rotation
+                                    doselTranslation); // Local translation
+
+    double motherVoxelOverlapCubicVolume(RealZero(motherSV->GetCubicVolume(),motherLV->GetSolid()->GetCubicVolume(),0.00001));
+
+    G4cout<<space<<"* Mother : "<<motherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
+          <<space<<"    Original volume    : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
+          <<space<<"    Overlap  volume    : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl
+          <<space<<"    Diff volume        : "<<(motherSV->GetCubicVolume()/motherLV->GetSolid()->GetCubicVolume())<<G4endl
+          <<space<<"    Overlap voxel      : "<<G4BestUnit(motherVoxelOverlapCubicVolume,"Volume")<<G4endl
+          <<space<<"    Density            : "<<G4BestUnit(motherDensity,"Volumic Mass")<<G4endl;
+
+    // If the mother's intersects the voxel.
+    //if(motherVoxelOverlapCubicVolume==0.)
+    if(motherVoxelOverlapCubicVolume==0.)
+    {
+      G4cout<<space<<" *** IS NOT IN THE DOXEL N°"<<index<<" ***"<<G4endl;
+      daughterVolume=0.; // Only for testing
+      if(Generation>0)
+        space.resize(space.size()-3);
+      return 0.;
+    }
+  }
+
+  // Voxel information dump ////////////////////////////////////////////////
+  /*space+="   ";
+  G4cout<<space<<"* Voxel n°"<<index<<" informations :"<<G4endl
+        <<space<<" --> Translation :"<<G4endl
+        <<space<<"       Relative : X="<<G4BestUnit(doselTranslation.getX(),"Length")
+                                <<",Y="<<G4BestUnit(doselTranslation.getY(),"Length")
+                                <<",Z="<<G4BestUnit(doselTranslation.getZ(),"Length")<<G4endl
+        <<space<<"       Absolute : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getX(),"Length")
+                                <<",Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getY(),"Length")
+                                <<",Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getZ(),"Length")<<G4endl
+        <<space<<" --> Rotation :"<<G4endl
+        <<space<<"       Relative : Phi="  <<doselRotation.getPhi()
+                                <<",Theta="<<doselRotation.getTheta()
+                                <<",Psi="  <<doselRotation.getPsi()<<G4endl
+        <<space<<"       Absolute : Phi="<<mDoseImage.GetValueImage().GetTransformMatrix().getPhi()
+                                <<",Theta="<<mDoseImage.GetValueImage().GetTransformMatrix().getTheta()
+                                <<",Psi="<<mDoseImage.GetValueImage().GetTransformMatrix().getPsi()<<G4endl;
+  space.resize(space.size()-3);*/
+  //////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////
+  if(motherLV->GetNoDaughters()>0) // If the mother's volume has daughter(s).
+  {
+    G4cout<<space<<"    Has "<<motherLV->GetNoDaughters()<<" daughter(s)"<<G4endl;
+    
+    for(int i=0;i<motherLV->GetNoDaughters();i++)
+    {
+      G4VPhysicalVolume*  daughterPV(motherLV->GetDaughter(i));
+      G4LogicalVolume*    daughterLV(daughterPV->GetLogicalVolume());
+      G4VSolid*           daughterSV(daughterLV->GetSolid());
+
+      /*GateDebugMessage("Actor", 5,space<<"   * Daughter n°"<<i<<" : "<<daughterLV->GetName()<<" :"<<Gateendl
+          <<space<<"       Has "<<daughterLV->GetNoDaughters()<<" daughter(s)"<<Gateendl);*/
+
+      // Calculation of absolute translation and rotation.
+      G4RotationMatrix daughterRotation(daughterPV->GetObjectRotationValue());
+      G4ThreeVector    daughterTranslation(daughterPV->GetObjectTranslation());
+
+      if(Generation>0)
+      {
+        daughterTranslation=motherTranslation+daughterPV->GetObjectTranslation().transform(motherRotation);
+        daughterRotation=daughterRotation.transform(motherRotation);
+      }
+
+
+      // Substraction Mother-Daughter
+      motherSV=new G4SubtractionSolid(motherSV->GetName()+"-"+daughterSV->GetName(),
+                                     motherSV, // Already overlapped with voxel volume
+                                     daughterSV,
+                                     daughterPV->GetObjectRotation(), // Local rotation
+                                     daughterPV->GetObjectTranslation()); // Local translation
+
+      G4cout<<space<<"  Mother-daughter overlap volume     : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl;
+
+      // Calculation of the mass of the Mother Progeny
+      motherProgenyMass+=VoxelIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation,index);
+      motherProgenyCubicVolume+=daughterVolume; // Only for verification.
+    }
+  }
+  else
+    G4cout<<space<<"    Has no daughter"<<G4endl;
+  //////////////////////////////////////////////////////////////////////////
+
+
+  // Mother mass & volume //////////////////////////////////////////////////
+  double motherCubicVolume(motherSV->GetCubicVolume());
+  if(motherPV->IsParameterised())
+  {
+    motherProgenyMass=doselMass;
+    motherProgenyCubicVolume=doselCubicVolume;
+  }
+  else
+  {
+    motherMass=motherCubicVolume*motherDensity;
+
+    motherProgenyMass+=motherMass;
+    motherProgenyCubicVolume+=motherCubicVolume;
+  }
+  //////////////////////////////////////////////////////////////////////////
+
+  // Mother information dump ///////////////////////////////////////////////
+  G4cout<<space<<"  Mother original volume     : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
+        <<space<<"  Mother w/o daughters volume: "<<G4BestUnit(motherCubicVolume,"Volume")<<G4endl
+        <<space<<"  Mother  +  daughters volume: "<<G4BestUnit(motherProgenyCubicVolume,"Volume")<<G4endl
+        <<space<<"  Mother Mass                : "<<G4BestUnit(motherMass,"Mass")<<G4endl
+        <<space<<"  Mother  +  daughters mass  : "<<G4BestUnit(motherProgenyMass,"Mass")<<" (MotherProgenyMass)"<<G4endl;
+  //////////////////////////////////////////////////////////////////////////
+
+  if(Generation>0)
+    space.resize(space.size()-3);
+
+  daughterVolume=motherProgenyCubicVolume;
+  return motherProgenyMass;
+}
+
+bool GateDoseActor::HasDaughter(const G4LogicalVolume* doseactorLV)
+{
+    if(doseactorLV->GetNoDaughters()>0)
+      return true;
+    return false;
+}
+//-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
 void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* step) {
@@ -428,33 +710,69 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
     }
   }
 
-  double dose=0.;
-  double density = step->GetPreStepPoint()->GetMaterial()->GetDensity();
-  //double volume = step->GetPreStepPoint()->GetPhysicalVolume()->GetLogicalVolume()->GetSolid()->GetCubicVolume();
+
 
   if(FirstTime)
   {
+
+    //FIXME : Savoir si le volume associé au DoseActor a des filles. Si oui utiliser l'algo, si non utiliser la formule de la densité originelle. Faire un booléen.
+    //
+
     FirstTime=false;
-    VoxelMass=0.;
+    bool mIsVoxelised(false);
     VoxelDensity=0.;
     VoxelVolume=0.;
+    doselMass.resize(mDoseImage.GetValueImage().GetNumberOfValues(),0.);
 
     DAPV=G4PhysicalVolumeStore::GetInstance()->GetVolume(mVolumeName+"_phys");
     DALV=G4LogicalVolumeStore::GetInstance()->GetVolume(mVolumeName+"_log");
 
-    GateDebugMessage("Actor", 5," DEBUG of DoseActor "<< GetObjectName()<<" :"<<Gateendl
-                  <<" DA volume name : "<<mVolumeName<<Gateendl);
-    //G4cout        <<"   Number of voxels  : "<<DALV->GetVoxelHeader()->GetNoSlices()<<G4endl;
-    //G4cout        <<"   Physical volume : "<<step->GetPreStepPoint()->GetPhysicalVolume()->GetName()<<G4endl;
+    // Study of voxelised volumes:
+    //G4cout<<"DALV->GetVoxelHeader()->GetNoSlices():"<<DALV->GetVoxelHeader()->GetNoSlices()<<G4endl; // Doesn't work (invalid use of incomplete type ‘struct G4SmartVoxelHeader’)
+
+    mHasDaughter=HasDaughter(DALV);
+
+    G4cout<<G4endl
+          <<"DEBUG of DoseActor "<< GetObjectName()<<" :"<<G4endl
+          <<" DA volume name   : "<<mVolumeName<<G4endl;
+    if(mHasDaughter)
+      G4cout<<" INFO : Has daughter(s)"<<G4endl;
+
+    if(mDoseImage.GetValueImage().GetNumberOfValues()>1&&DALV->GetSolid()->GetCubicVolume()>mDoseImage.GetVoxelVolume())
+      mIsVoxelised=true;
+
+    if(mIsVoxelised)
+      G4cout<<" INFO : Is voxelised"<<G4endl
+            <<"        Number of voxels : "<<mDoseImage.GetValueImage().GetNumberOfValues()<<G4endl;
+
+    G4cout        <<"   DALV->GetSolid()->GetCubicVolume() : "<<DALV->GetSolid()->GetCubicVolume()<<G4endl;
+    G4cout        <<"   mDoseImage.GetVoxelVolume() : "<<mDoseImage.GetVoxelVolume()<<G4endl;
 
 
-    //if(DALV->GetNoDaughters()>0)
-      VoxelMass=VolumeIteration(DALV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation()).first;
-    //else VoxelMass=DALV->GetMass();
-      //VolumeIteration(DALV,DAPV->GetRotation(),DAPV->GetTranslation());
+    /*if(mHasDaughter&&!mIsVoxelised)
+      voxelMass[0]=VolumeIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation()).first;
+    else if(mHasDaughter)*/
+      double totalMass(0.);
+      for(long int i=0;i<mDoseImage.GetValueImage().GetNumberOfValues();i++)
+      {
+        if(i%10==0) std::cout<<" * Please wait ... "<<i<<"/"<<mDoseImage.GetValueImage().GetNumberOfValues()<<"\r"<<std::flush;
+        //G4cout<<" DEBUG : VoxelNx="<<mDoseImage.GetValueImage().GetVoxelNx()<<", VoxelNy="<<mDoseImage.GetValueImage().GetVoxelNy()<<", VoxelNz="<<mDoseImage.GetValueImage().GetVoxelNz()<<G4endl;
+        /*G4cout<<" DEBUG : Index : "<<i<<G4endl;
+        G4cout<<" DEBUG : Voxel size   : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelSize().getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelSize().getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelSize().getZ(),"Length")<<G4endl;
+        G4cout<<" DEBUG : Voxel center : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getZ(),"Length")<<G4endl;
+        G4cout<<" DEBUG : Voxel corner : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getZ(),"Length")<<G4endl;*/
 
-    double DALVCubicVolume(DALV->GetSolid()->GetCubicVolume());
-    VoxelDensity=VoxelMass/DALVCubicVolume;
+        doselMass[i]=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),i);
+
+        //FIXME : La densité du voxel ne varie pas selon la position de celui-ci dans le volume.
+
+
+
+        G4cout<<" DEBUG : doselMass["<<i<<"] : "<<G4BestUnit(doselMass[i],"Mass")<<G4endl;
+        totalMass+=doselMass[i];
+      }
+      G4cout<<" DEBUG : Dosels totalMass : "<<G4BestUnit(totalMass,"Mass")<<G4endl;
+
 
     GateDebugMessage("Actor", 5," DA volume           : "<<G4BestUnit(DALVCubicVolume,"Volume")<<Gateendl
           <<" DA original mass    : "<<G4BestUnit(DALV->GetMass(true,true,0),"Mass")<<" (propagated)"<<Gateendl
@@ -463,6 +781,13 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
           <<" DA corrected mass   : "<<G4BestUnit(VoxelMass,"Mass")<<Gateendl
           <<" DA corrected density: "<<G4BestUnit(VoxelDensity,"Volumic Mass")<<Gateendl);
   }
+
+  double dose=0.;
+  double density;
+  if(mHasDaughter)
+    density = doselMass[index]/mDoseImage.GetVoxelVolume();
+  else
+    density = step->GetPreStepPoint()->GetMaterial()->GetDensity();
 
 
   if (mIsDoseImageEnabled) {
@@ -474,8 +799,7 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
     // dose = edep/density*1e12/mDoseImage.GetVoxelVolume();
 
     // NEW version (same results but more clear)
-    //dose = edep/density/mDoseImage.GetVoxelVolume()/gray;
-    dose = edep/VoxelDensity/mDoseImage.GetVoxelVolume()/gray;
+    dose = edep/density/mDoseImage.GetVoxelVolume()/gray;
     // ------------------------------------
 
     GateDebugMessage("Actor", 2,  "GateDoseActor -- UserSteppingActionInVoxel:\tdose = "

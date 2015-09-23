@@ -77,7 +77,9 @@ class GateDoseActor : public GateVImageActor
   virtual void EndOfEvent(G4HCofThisEvent*){}
 
   //Added for Voxel algorithm
-  std::pair<double,G4VSolid*> VolumeIteration(G4LogicalVolume* MotherLV,int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation);//,int Generation=0);
+  bool HasDaughter(const G4LogicalVolume* doseactorLV);
+  std::pair<double,G4VSolid*> VolumeIteration(const G4VPhysicalVolume* motherPV,int generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation);
+  double VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
 
 protected:
   GateDoseActor(G4String name, G4int depth=0);
@@ -114,10 +116,17 @@ protected:
   G4EmCalculator * emcalc;
 
   //Added for Voxel algorithm
-  double VoxelMass;
+  std::vector<double> doselMass;
+  std::vector<long int> voxelMatrix;
+  std::vector<G4ThreeVector> voxelAbsoluteTranslation;
+  std::vector<double> voxelCubicVolume;
+  std::vector<double> voxelMass;
   double VoxelDensity;
   double VoxelVolume;
+  double daughterVolume;
   bool   FirstTime;
+  bool   matrixFirstTime;
+  bool   mHasDaughter;
   G4VPhysicalVolume* DAPV;
   G4LogicalVolume* DALV;
   G4String space;
