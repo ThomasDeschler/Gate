@@ -117,10 +117,8 @@ protected:
 
   //Added for Voxel algorithm
   std::vector<double> doselMass;
-  std::vector<long int> voxelMatrix;
-  std::vector<G4ThreeVector> voxelAbsoluteTranslation;
-  std::vector<double> voxelCubicVolume;
-  std::vector<double> voxelMass;
+  std::vector<std::vector<std::vector<double> > > voxelCubicVolume;
+  std::vector<std::vector<std::vector<double> > > voxelMass;
   double VoxelDensity;
   double VoxelVolume;
   double daughterVolume;
@@ -130,6 +128,8 @@ protected:
   G4VPhysicalVolume* DAPV;
   G4LogicalVolume* DALV;
   G4String space;
+  double seconds;
+  bool firstTimeTimer;
 
 };
 
