@@ -45,6 +45,7 @@ protected:
   G4UIcmdWithABool * pEnableDoseNormToMaxCmd;
   G4UIcmdWithABool * pEnableDoseNormToIntegralCmd;
   G4UIcmdWithABool * pEnableDoseToWaterNormCmd;
+  G4UIcmdWithABool * pEnableMassCmd;
 };
 
 #endif /* end #define GATEDOSEACTORMESSENGER_HH*/

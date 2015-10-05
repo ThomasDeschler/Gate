@@ -55,6 +55,7 @@ GateDoseActor::GateDoseActor(G4String name, G4int depth):
   mIsNumberOfHitsImageEnabled = false;
   mIsDoseNormalisationEnabled = false;
   mIsDoseToWaterNormalisationEnabled = false;
+  mIsMassImageEnabled = false;
 
   pMessenger = new GateDoseActorMessenger(this);
   GateDebugMessageDec("Actor",4,"GateDoseActor() -- end\n");
@@ -63,7 +64,9 @@ GateDoseActor::GateDoseActor(G4String name, G4int depth):
   //Added for algorithm
   FirstTime=true;
   matrixFirstTime=true;
+  mMassFirstTime=true;
   space="";
+  nbofRecVoxels=0;
 }
 //-----------------------------------------------------------------------------
 
@@ -117,7 +120,8 @@ void GateDoseActor::Construct() {
   if (!mIsEdepImageEnabled &&
       !mIsDoseImageEnabled &&
       !mIsDoseToWaterImageEnabled &&
-      !mIsNumberOfHitsImageEnabled)  {
+      !mIsNumberOfHitsImageEnabled &&
+      !mIsMassImageEnabled)  {
     GateError("The DoseActor " << GetObjectName()
               << " does not have any image enabled ...\n Please select at least one ('enableEdep true' for example)");
   }
@@ -127,6 +131,7 @@ void GateDoseActor::Construct() {
   mDoseFilename = G4String(removeExtension(mSaveFilename))+"-Dose."+G4String(getExtension(mSaveFilename));
   mDoseToWaterFilename = G4String(removeExtension(mSaveFilename))+"-DoseToWater."+G4String(getExtension(mSaveFilename));
   mNbOfHitsFilename = G4String(removeExtension(mSaveFilename))+"-NbOfHits."+G4String(getExtension(mSaveFilename));
+  mMassFilename = G4String(removeExtension(mSaveFilename))+"-Mass."+G4String(getExtension(mSaveFilename));
 
   // Set origin, transform, flag
   SetOriginTransformAndFlagToImage(mEdepImage);
@@ -134,6 +139,7 @@ void GateDoseActor::Construct() {
   SetOriginTransformAndFlagToImage(mNumberOfHitsImage);
   SetOriginTransformAndFlagToImage(mLastHitEventImage);
   SetOriginTransformAndFlagToImage(mDoseToWaterImage);
+  SetOriginTransformAndFlagToImage(mMassImage);
 
   // Resize and allocate images
   if (mIsEdepSquaredImageEnabled || mIsEdepUncertaintyImageEnabled ||
@@ -179,6 +185,10 @@ void GateDoseActor::Construct() {
     mNumberOfHitsImage.SetResolutionAndHalfSize(mResolution, mHalfSize, mPosition);
     mNumberOfHitsImage.Allocate();
   }
+  if (mIsMassImageEnabled) {
+    mMassImage.SetResolutionAndHalfSize(mResolution, mHalfSize, mPosition);
+    mMassImage.Allocate();
+  }
 
   // Print information
   GateMessage("Actor", 1,
@@ -194,9 +204,11 @@ void GateDoseActor::Construct() {
               "\tEdep uncertainty  = " << mIsEdepUncertaintyImageEnabled << Gateendl <<
               "\tNumber of hit     = " << mIsNumberOfHitsImageEnabled << Gateendl <<
               "\t     (last hit)   = " << mIsLastHitEventImageEnabled << Gateendl <<
-              "\tedepFilename      = " << mEdepFilename << Gateendl <<
-              "\tdoseFilename      = " << mDoseFilename << Gateendl <<
-              "\tNb Hits filename  = " << mNbOfHitsFilename << Gateendl);
+              "\tMass image        = " << mIsMassImageEnabled << Gateendl <<
+              "\tEdepFilename      = " << mEdepFilename << Gateendl <<
+              "\tDoseFilename      = " << mDoseFilename << Gateendl <<
+              "\tNb Hits filename  = " << mNbOfHitsFilename << Gateendl <<
+              "\tMassFilename  = " << mMassFilename << Gateendl);
 
   ResetData();
   GateMessageDec("Actor", 4, "GateDoseActor -- Construct - end\n");
@@ -231,6 +243,10 @@ void GateDoseActor::SaveData() {
   if (mIsNumberOfHitsImageEnabled) {
     mNumberOfHitsImage.Write(mNbOfHitsFilename);
   }
+
+  if (mIsMassImageEnabled) {
+    mMassImage.Write(mMassFilename);
+  }
 }
 //-----------------------------------------------------------------------------
 
@@ -241,6 +257,7 @@ void GateDoseActor::ResetData() {
   if (mIsDoseImageEnabled) mDoseImage.Reset();
   if (mIsDoseToWaterImageEnabled) mDoseToWaterImage.Reset();
   if (mIsNumberOfHitsImageEnabled) mNumberOfHitsImage.Fill(0);
+  if (mIsMassImageEnabled) mMassImage.Fill(0);
 }
 //-----------------------------------------------------------------------------
 
@@ -453,11 +470,6 @@ std::pair<double,G4VSolid*> GateDoseActor::VolumeIteration(const G4VPhysicalVolu
 }
 //-----------------------------------------------------------------------------
 
-struct VOXELDATA
-{
-  double    cubicVolume,Mass;
-};
-
 //-----------------------------------------------------------------------------
 double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation,const int index)
 {
@@ -484,34 +496,50 @@ double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Gener
   if(Generation>0)
     doselTranslation-=motherTranslation;
 
+  // Dosel information dump ////////////////////////////////////////////////
+  /*space+="   ";
+  G4cout<<space<<"* Doxel n°"<<index<<" informations :"<<G4endl
+        <<space<<" --> Translation :"<<G4endl
+        <<space<<"       Relative : X="<<G4BestUnit(doselTranslation.getX(),"Length")
+                                <<",Y="<<G4BestUnit(doselTranslation.getY(),"Length")
+                                <<",Z="<<G4BestUnit(doselTranslation.getZ(),"Length")<<G4endl
+        <<space<<"       Absolute : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getX(),"Length")
+                                <<",Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getY(),"Length")
+                                <<",Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getZ(),"Length")<<G4endl
+        <<space<<" --> Rotation :"<<G4endl
+        <<space<<"       Relative : Phi="  <<doselRotation.getPhi()
+                                <<",Theta="<<doselRotation.getTheta()
+                                <<",Psi="  <<doselRotation.getPsi()<<G4endl
+        <<space<<"       Absolute : Phi="<<mDoseImage.GetValueImage().GetTransformMatrix().getPhi()
+                                <<",Theta="<<mDoseImage.GetValueImage().GetTransformMatrix().getTheta()
+                                <<",Psi="<<mDoseImage.GetValueImage().GetTransformMatrix().getPsi()<<G4endl;
+  space.resize(space.size()-3);*/
+  //////////////////////////////////////////////////////////////////////////
+
   // Parameterisation //////////////////////////////////////////////////////
   /*G4cout<<space<<"     * "<<motherPV->GetName()<<" :"<<G4endl;
   G4cout<<space<<"       Parameterised ?     : "<<motherPV->IsParameterised()<<G4endl;
   G4cout<<space<<"       Replicated ?        : "<<motherPV->IsReplicated()<<G4endl;*/
   double doselCubicVolume(doselSV.GetCubicVolume());
-  double doselMass(0.);
   if(motherPV->IsParameterised())
   {
     //G4cout<<space<<"       motherPV->GetName()         : "<<motherPV->GetName() <<G4endl;
     //G4cout<<space<<"       motherPV->GetMultiplicity() : "<<motherPV->GetMultiplicity() <<G4endl;
     G4VPVParameterisation* motherParameterisation(motherPV->GetParameterisation());
-    double doselReconstructedCubicVolume(0.); // For control only
     int nbVoxelInsideDosel(0),nbVoxelempty(0);
-
-
-    
-    G4Box* DABox((G4Box*)DALV->GetSolid()); 
-    G4Box* voxelBox((G4Box*)motherParameterisation->ComputeSolid(0,motherPV)); 
 
     if(matrixFirstTime)
     {
-      //G4cout<<"DALV->GetSolid()->GetEntityType()="<<DALV->GetSolid()->GetEntityType()<<G4endl;
-      int nxVoxel(DABox->GetXHalfLength()/voxelBox->GetXHalfLength()),
-          nyVoxel(DABox->GetYHalfLength()/voxelBox->GetYHalfLength()),
-          nzVoxel(DABox->GetZHalfLength()/voxelBox->GetZHalfLength());
+      time_t timer1,timer2;
+      time(&timer1);
 
+      G4Box* DABox((G4Box*)DALV->GetSolid()); 
+      G4Box* voxelBox((G4Box*)motherParameterisation->ComputeSolid(0,motherPV));
+      const int nxVoxel=round(DABox->GetXHalfLength()/voxelBox->GetXHalfLength());
+      const int nyVoxel=round(DABox->GetYHalfLength()/voxelBox->GetYHalfLength());
+      const int nzVoxel=round(DABox->GetZHalfLength()/voxelBox->GetZHalfLength());
 
-      /*G4cout<<" * Voxels info :"<<nxVoxel<<G4endl;
+      /*G4cout<<" * Voxels info :"<<G4endl;
       G4cout<<"Total x voxels="<<nxVoxel<<G4endl;
       G4cout<<"Total y Voxels="<<nyVoxel<<G4endl;
       G4cout<<"Total z Voxels="<<nzVoxel<<G4endl;*/
@@ -528,64 +556,248 @@ double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Gener
           voxelMass[x][y].resize(nzVoxel,-1.);
         }
       }
+      doselReconstructedCubicVolume.resize(mDoseImage.GetValueImage().GetNumberOfValues(),-1.);
+      doselReconstructedMass.resize(mDoseImage.GetValueImage().GetNumberOfValues(),-1.);
 
       //G4cout<<space<<" Computing data form parameterised volume, please wait."<<G4endl;
       matrixFirstTime=false;
       for(signed long int i=0;i<motherPV->GetMultiplicity();i++)
       {
         motherParameterisation->ComputeTransformation(i,motherPV);
+
         //Computing voxel x y z :
         int xVoxel(round((DABox->GetXHalfLength()+motherPV->GetTranslation().getX()-voxelBox->GetXHalfLength())/(voxelBox->GetXHalfLength()*2.0)));
         int yVoxel(round((DABox->GetYHalfLength()+motherPV->GetTranslation().getY()-voxelBox->GetYHalfLength())/(voxelBox->GetYHalfLength()*2.0)));
         int zVoxel(round((DABox->GetZHalfLength()+motherPV->GetTranslation().getZ()-voxelBox->GetZHalfLength())/(voxelBox->GetZHalfLength()*2.0)));
-        //G4cout<<"xVoxel="<<xVoxel<<G4endl;
-        //G4cout<<"yVoxel="<<yVoxel<<G4endl;
-        //G4cout<<"zVoxel="<<zVoxel<<G4endl;
-        if(xVoxel==nxVoxel||yVoxel==nyVoxel||zVoxel==nzVoxel)
+
+        /*G4cout<<"xVoxel="<<xVoxel<<G4endl;
+        G4cout<<"yVoxel="<<yVoxel<<G4endl;
+        G4cout<<"zVoxel="<<zVoxel<<G4endl;*/
+
+        if(xVoxel>=nxVoxel||yVoxel>=nyVoxel||zVoxel>=nzVoxel)
+        {
+          GateError("!!! ERROR : Too many voxels !!! (xVoxel="<<xVoxel<<",yVoxel="<<yVoxel<<",zVoxel="<<zVoxel<<")"<<Gateendl);
           exit(EXIT_FAILURE);
+        }
+
         voxelCubicVolume[xVoxel][yVoxel][zVoxel]=motherParameterisation->ComputeSolid(i,motherPV)->GetCubicVolume();
         voxelMass[xVoxel][yVoxel][zVoxel]=motherParameterisation->ComputeMaterial(i,motherPV)->GetDensity()*motherParameterisation->ComputeSolid(i,motherPV)->GetCubicVolume();
       }
-    }
-    
 
-    //G4cout<<G4endl<<space<<"* Computing the parameterised volume for dosel n°"<<index<<", please wait."<<G4endl;
+      double doselReconstructedTotalMass(0.);
+      double doselReconstructedTotalCubicVolume(0.);
+      int diffx(0),diffy(0),diffz(0);
 
-    time_t timer1,timer2;
-    if(index==0)
-      time(&timer1);
-
-    double xDoselmin((DABox->GetXHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getX()-mDoseImage.GetValueImage().GetVoxelSize().getX()/2.0)/(voxelBox->GetXHalfLength()*2.0));
-    double xDoselmax((DABox->GetXHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getX()+mDoseImage.GetValueImage().GetVoxelSize().getX()/2.0)/(voxelBox->GetXHalfLength()*2.0));
-    double yDoselmin((DABox->GetYHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getY()-mDoseImage.GetValueImage().GetVoxelSize().getY()/2.0)/(voxelBox->GetYHalfLength()*2.0));
-    double yDoselmax((DABox->GetYHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getY()+mDoseImage.GetValueImage().GetVoxelSize().getY()/2.0)/(voxelBox->GetYHalfLength()*2.0));
-    double zDoselmin((DABox->GetZHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getZ()-mDoseImage.GetValueImage().GetVoxelSize().getZ()/2.0)/(voxelBox->GetZHalfLength()*2.0));
-    double zDoselmax((DABox->GetZHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getZ()+mDoseImage.GetValueImage().GetVoxelSize().getZ()/2.0)/(voxelBox->GetZHalfLength()*2.0));
+      for(long int i=0;i<mDoseImage.GetValueImage().GetNumberOfValues();i++)
+      {
+        double xDoselmin((DABox->GetXHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getX()-mDoseImage.GetValueImage().GetVoxelSize().getX()/2.0)/(voxelBox->GetXHalfLength()*2.0));
+        double xDoselmax((DABox->GetXHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getX()+mDoseImage.GetValueImage().GetVoxelSize().getX()/2.0)/(voxelBox->GetXHalfLength()*2.0));
+        double yDoselmin((DABox->GetYHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getY()-mDoseImage.GetValueImage().GetVoxelSize().getY()/2.0)/(voxelBox->GetYHalfLength()*2.0));
+        double yDoselmax((DABox->GetYHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getY()+mDoseImage.GetValueImage().GetVoxelSize().getY()/2.0)/(voxelBox->GetYHalfLength()*2.0));
+        double zDoselmin((DABox->GetZHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getZ()-mDoseImage.GetValueImage().GetVoxelSize().getZ()/2.0)/(voxelBox->GetZHalfLength()*2.0));
+        double zDoselmax((DABox->GetZHalfLength()+mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getZ()+mDoseImage.GetValueImage().GetVoxelSize().getZ()/2.0)/(voxelBox->GetZHalfLength()*2.0));
 
         /*G4cout<<" * Dosel info :"<<G4endl;
         G4cout<<"xmin="<<round(xDoselmin)<<", xmax="<<round(xDoselmax)<<G4endl;
         G4cout<<"ymin="<<round(yDoselmin)<<", ymax="<<round(yDoselmax)<<G4endl;
         G4cout<<"zmin="<<round(zDoselmin)<<", zmax="<<round(zDoselmax)<<G4endl;*/
 
-    for(int x=round(xDoselmin);x<round(xDoselmax);x++)
-      for(int y=round(yDoselmin);y<round(yDoselmax);y++)
-        for(int z=round(zDoselmin);z<round(zDoselmax);z++)
-        {
-          nbVoxelInsideDosel++;
-          if(voxelCubicVolume[x][y][z]==-1.||voxelMass[x][y][z]==-1.)
-          {
-            G4cout<<"!!! ERROR : some voxels are empty !!! ("<<x<<","<<y<<","<<z<<")"<<G4endl;
-            nbVoxelempty++;
-            //exit(EXIT_FAILURE);
-          }
-          else
-          {
-            doselReconstructedCubicVolume+=voxelCubicVolume[x][y][z];
-            doselMass+=voxelMass[x][y][z];
-          }
-        }
-    /*for(long int i=;i<mDoseImage.GetValueImage().GetNumberOfValues();i++)
-    {
+        /*if(i!=0&&(round(xDoselmax)-round(xDoselmin))!=diffx)
+          GateWarning("Dosel "<<i<<" has not the same size in x : "<<round(xDoselmax)-round(xDoselmin)<<" (diffx="<<diffx<<")"<<Gateendl);
+        else diffx=round(xDoselmax)-round(xDoselmin);
+
+        if(i!=0&&(round(yDoselmax)-round(yDoselmin))!=diffy)
+          GateWarning("Dosel "<<i<<" has not the same size in y : "<<round(yDoselmax)-round(yDoselmin)<<" (diffy="<<diffy<<")"<<Gateendl);
+        else diffy=round(yDoselmax)-round(yDoselmin);
+
+        if(i!=0&&(round(zDoselmax)-round(zDoselmin))!=diffz)
+          GateWarning("Dosel "<<i<<" has not the same size in z : "<<round(zDoselmax)-round(zDoselmin)<<" (diffz="<<diffz<<")"<<Gateendl);
+        else diffz=round(zDoselmax)-round(zDoselmin);*/
+
+        for(int x=round(xDoselmin);x<round(xDoselmax);x++)
+          for(int y=round(yDoselmin);y<round(yDoselmax);y++)
+            for(int z=round(zDoselmin);z<round(zDoselmax);z++)
+            {
+              nbVoxelInsideDosel++;
+
+              int xmod(x),ymod(y),zmod(z);
+              double coefx(1.),coefy(1.),coefz(1.);
+              if(x==round(xDoselmin)&&fmod(xDoselmin,1)>1e-8)
+              {
+                coefx=1-fmod(xDoselmin,1);
+                //G4cout<<"xDoselmin%1="<<fmod(xDoselmin,1)<<", xDoselmin="<<xDoselmin<<", round(xDoselmin)="<<round(xDoselmin)<<G4endl;
+                if(fmod(xDoselmin,1)>=0.5)
+                  xmod=x-1;
+              }
+              else if(x==round(xDoselmax)-1&&fmod(xDoselmax,1)>1e-8)
+              {
+                coefx=fmod(xDoselmax,1);
+                if(coefx<0.5)
+                  xmod=x+1;
+              }
+
+              if(y==round(yDoselmin)&&fmod(yDoselmin,1)>1e-8)
+              {
+                coefy=1-fmod(yDoselmin,1);
+                if(fmod(yDoselmin,1)>=0.5)
+                  ymod=y-1;
+              }
+              else if(y==round(yDoselmax)-1&&fmod(yDoselmax,1)>1e-8)
+              {
+                coefy=fmod(yDoselmax,1);
+                if(coefy<0.5)
+                  ymod=y+1;
+              }
+
+              if(z==round(zDoselmin)&&fmod(zDoselmin,1)>1e-8)
+              {
+                coefz=1-fmod(zDoselmin,1);
+                if(fmod(zDoselmin,1)>=0.5)
+                  zmod=z-1;
+              }
+              else if(z==round(zDoselmax)-1&&fmod(zDoselmax,1)>1e-8)
+              {
+                coefz=fmod(zDoselmax,1);
+                if(coefz<0.5)
+                  zmod=z+1;
+              }
+
+              if(xmod>=nxVoxel||ymod>=nyVoxel||zmod>=nzVoxel)
+              {
+                GateError("!!! ERROR : xmod="<<xmod<<" ("<<nxVoxel<<", coefx="<<coefx<<"), ymod="<<ymod<<" ("<<nyVoxel<<", coefy="<<coefy<<"), zmod="<<zmod<<" ("<<nzVoxel<<", coefz="<<coefz<<")"<<Gateendl);
+              }
+
+              if(coefx<1.||coefy<1.||coefz<1.)
+              {
+                double coefxyz(coefx*coefy*coefz);
+                doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][ymod][zmod]*coefxyz;
+                doselReconstructedMass[i]+=voxelMass[xmod][ymod][zmod]*coefxyz;
+
+                if(xmod!=x&&ymod!=y&&zmod!=z)
+                {
+                  double coefxy(coefx*coefy);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][ymod][z]*coefxy;
+                  doselReconstructedMass[i]+=voxelMass[xmod][ymod][z]*coefxy;
+                  double coefxz(coefx*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][y][zmod]*coefxz;
+                  doselReconstructedMass[i]+=voxelMass[xmod][y][zmod]*coefxz;
+                  double coefyz(coefy*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][ymod][zmod]*coefyz;
+                  doselReconstructedMass[i]+=voxelMass[x][ymod][zmod]*coefyz;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][y][z]*coefx;
+                  doselReconstructedMass[i]+=voxelMass[xmod][y][z]*coefx;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][ymod][z]*coefy;
+                  doselReconstructedMass[i]+=voxelMass[x][ymod][z]*coefy;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][zmod]*coefz;
+                  doselReconstructedMass[i]+=voxelMass[x][y][zmod]*coefz;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z];
+                  doselReconstructedMass[i]+=voxelMass[x][y][z];
+                }
+                else if(xmod==x&&ymod!=y&&zmod!=z)
+                {
+                  double coefxy(coefx*coefy);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][ymod][z]*coefxy;
+                  doselReconstructedMass[i]+=voxelMass[xmod][ymod][z]*coefxy;
+                  double coefxz(coefx*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][y][zmod]*coefxz;
+                  doselReconstructedMass[i]+=voxelMass[xmod][y][zmod]*coefxz;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z]*coefx;
+                  doselReconstructedMass[i]+=voxelMass[x][y][z]*coefx;
+                }
+                else if(xmod!=x&&ymod==y&&zmod!=z)
+                {
+                  double coefxy(coefx*coefy);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][ymod][z]*coefxy;
+                  doselReconstructedMass[i]+=voxelMass[xmod][ymod][z]*coefxy;
+                  double coefyz(coefy*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][ymod][zmod]*coefyz;
+                  doselReconstructedMass[i]+=voxelMass[x][ymod][zmod]*coefyz;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z]*coefy;
+                  doselReconstructedMass[i]+=voxelMass[x][y][z]*coefy;
+                }
+                else if(xmod!=x&&ymod!=y&&zmod==z)
+                {
+                  double coefxz(coefx*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[xmod][y][zmod]*coefxz;
+                  doselReconstructedMass[i]+=voxelMass[xmod][y][zmod]*coefxz;
+                  double coefyz(coefy*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][ymod][zmod]*coefyz;
+                  doselReconstructedMass[i]+=voxelMass[x][ymod][zmod]*coefyz;
+
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z]*coefz;
+                  doselReconstructedMass[i]+=voxelMass[x][y][z]*coefz;
+                }
+                else if(xmod!=x&&ymod==y&&zmod==z)
+                {
+                  double coefyz(coefy*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z]*coefyz;
+                  doselReconstructedMass[i]+=voxelMass[x][y][z]*coefyz;
+                }
+                else if(xmod==x&&ymod!=y&&zmod==z)
+                {
+                  double coefxz(coefx*coefz);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z]*coefxz;
+                  doselReconstructedMass[i]+=voxelMass[x][y][z]*coefxz;
+                }
+                else if(xmod==x&&ymod==y&&zmod!=z)
+                {
+                  double coefxy(coefx*coefy);
+                  doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z]*coefxy;
+                  doselReconstructedMass[i]+=voxelMass[x][y][z]*coefxy;
+                }
+              }
+              else if(voxelCubicVolume[x][y][z]==-1.||voxelMass[x][y][z]==-1.)
+              {
+                GateError("!!! ERROR : some voxels are empty !!! ("<<x<<","<<y<<","<<z<<")"<<Gateendl);
+                nbVoxelempty++;
+                //exit(EXIT_FAILURE);
+              }
+              else if(voxelCubicVolume[x][y][z]==-2.||voxelMass[x][y][z]==-2.)
+              {
+                GateError("!!! ERROR : some voxels are used multiples times !!! ("<<x<<","<<y<<","<<z<<")"<<Gateendl);
+                //exit(EXIT_FAILURE);
+              }
+              else if((coefx==1.&&coefy==1.&&coefz==1)||xmod!=x||ymod!=y||zmod!=z)
+              {
+                doselReconstructedCubicVolume[i]+=voxelCubicVolume[x][y][z];
+                doselReconstructedMass[i]+=voxelMass[x][y][z];
+                voxelCubicVolume[x][y][z]=-2.;
+                voxelMass[x][y][z]=-2.;
+              }
+            }
+        doselReconstructedTotalMass+=doselReconstructedMass[i];
+        doselReconstructedTotalCubicVolume+=doselReconstructedCubicVolume[i];
+
+        //if(i!=0&&abs(doselReconstructedCubicVolume[i]-doselCubicVolume>1e-1))
+        //  GateWarning("Dosel "<<i<<" has incorrect reconstructed cubic volume : "<<Gateendl
+        //      <<"   "<<G4BestUnit(doselReconstructedCubicVolume[i],"Volume")<<" (Original cubic volume : "<<G4BestUnit(mDoseImage.GetVoxelVolume(),"Volume")<<")"<<Gateendl
+        //      <<"   "<< "xmin="<<xDoselmin<<" ("<<round(xDoselmin)<<"), xmax="<<xDoselmax<<" ("<<round(xDoselmax)<<")"<<Gateendl
+        //      <<"   "<< "ymin="<<yDoselmin<<" ("<<round(yDoselmin)<<"), ymax="<<yDoselmax<<" ("<<round(yDoselmax)<<")"<<Gateendl
+        //      <<"   "<< "zmin="<<zDoselmin<<" ("<<round(zDoselmin)<<"), zmax="<<zDoselmax<<" ("<<round(zDoselmax)<<")"<<Gateendl);
+      }
+      time(&timer2);
+      seconds=difftime(timer2,timer1);
+
+      G4cout<<G4endl<<space<<"================================================================"<<G4endl;
+      G4cout<<space<<" * SUMMARY : Dosel mass calculation for voxelized volume :"<<G4endl;
+      G4cout<<space<<"     Time elapsed : "<<seconds<<" seconds"<<G4endl;
+      G4cout<<space<<"     Number of voxels : "<<motherPV->GetMultiplicity()<<G4endl;
+      G4cout<<space<<"     Number of dosels : "<<mDoseImage.GetValueImage().GetNumberOfValues()<<G4endl;
+      G4cout<<space<<"     Dosels reconstructed total mass : "<<G4BestUnit(doselReconstructedTotalMass,"Mass")<<G4endl;
+      G4cout<<space<<"     Dosels reconstructed total mass : "<<doselReconstructedTotalMass<<G4endl;
+      G4cout<<space<<"     Dosels reconstructed total cubic volume : "<<G4BestUnit(doselReconstructedTotalCubicVolume,"Volume")<<G4endl;
+      G4cout<<space<<"================================================================"<<G4endl<<G4endl;
+    }
+
+    motherProgenyMass=doselReconstructedMass[index];
+    motherProgenyCubicVolume=doselCubicVolume;
+
 
         //if(i%10000==0) std::cout<<" * "<<index*100/mDoseImage.GetValueImage().GetNumberOfValues()<<"% of all dosels ("<<i*100/motherPV->GetMultiplicity()<<"%)\r"<<std::flush;
         
@@ -594,26 +806,12 @@ double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Gener
         //G4cout<<space<<"         Dosel->Voxel Translation : X="<<G4BestUnit(voxelTranslation.getX(),"Length")<<",Y="<<G4BestUnit(voxelTranslation.getY(),"Length")<<",Z="<<G4BestUnit(voxelTranslation.getZ(),"Length")<<G4endl;
         //G4cout<<space<<"         Mother->Voxel Translation : X="<<G4BestUnit(motherPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(motherPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(motherPV->GetTranslation().getZ(),"Length")<<G4endl;
 
-        //if(doselSV.Inside(voxelTranslation)==kInside) //FIXME : This method takes way too much time. And vector.erase too.
-        //{
-          nbVoxelInsideDosel++;
 
-          doselReconstructedCubicVolume+=voxelCubicVolume[x][y][z];
-          doselMass+=voxelMass[x][y][z];
-
-        //}
 
         //G4cout<<space<<"       Voxel n°"<<i<<" :"<<G4endl;
         //G4cout<<space<<"         CubicVolume : "<<G4BestUnit(motherParameterisation->ComputeSolid(i,motherPV)->GetCubicVolume(),"Volume")<<G4endl;
         //G4cout<<space<<"         Material    : "<<motherParameterisation->ComputeMaterial(i,motherPV)->GetName()<<G4endl;
         //G4cout<<space<<"         Translation : X="<<G4BestUnit(motherPV->GetTranslation().getX(),"Length")<<",Y="<<G4BestUnit(motherPV->GetTranslation().getY(),"Length")<<",Z="<<G4BestUnit(motherPV->GetTranslation().getZ(),"Length")<<G4endl;
-    }*/
-    if(index==50)
-    {
-      time(&timer2);
-      seconds=difftime(timer2,timer1);
-    }
-    if(index%50==0&&index>0) std::cout<<" * Index : "<<index<<", temps restant : "<<(mDoseImage.GetValueImage().GetNumberOfValues()-index)*seconds/50.0/60.0<<" min (voxels in dosel : "<<nbVoxelInsideDosel<<")                \r"<<std::flush;
 
     /*G4cout<<G4endl;
     G4cout<<space<<"       Nb of voxels inside dosel : "<<nbVoxelInsideDosel<<"/"<<motherPV->GetMultiplicity()<<" ("<<nbVoxelInsideDosel*100/motherPV->GetMultiplicity()<<"%)"<<G4endl;
@@ -633,18 +831,21 @@ double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Gener
                                     doselTranslation); // Local translation
 
     //double motherVoxelOverlapCubicVolume(RealZero(motherSV->GetCubicVolume(),motherLV->GetSolid()->GetCubicVolume(),0.00001));
-    double motherVoxelOverlapCubicVolume(motherSV->GetCubicVolume());
+    double motherDoselOverlapCubicVolume(motherSV->GetCubicVolume());
 
-    /*G4cout<<space<<"* Mother : "<<motherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
+    G4cout<<G4endl<<space<<"================================================================"<<G4endl;
+    G4cout<<space<<" * SUMMARY : Mother : "<<motherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
+          <<space<<"    Material           : "<<motherLV->GetMaterial()->GetName()<<G4endl
+          <<space<<"    Density            : "<<G4BestUnit(motherDensity,"Volumic Mass")<<G4endl
           <<space<<"    Original volume    : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
-          <<space<<"    Overlap  volume    : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl
+          <<space<<"    Overlap volume (with dosel "<<index<<") : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl
           <<space<<"    Diff volume        : "<<(motherSV->GetCubicVolume()/motherLV->GetSolid()->GetCubicVolume())<<G4endl
-          <<space<<"    Overlap voxel      : "<<G4BestUnit(motherVoxelOverlapCubicVolume,"Volume")<<G4endl
-          <<space<<"    Density            : "<<G4BestUnit(motherDensity,"Volumic Mass")<<G4endl;*/
+          <<space<<"    Overlap voxel      : "<<G4BestUnit(motherDoselOverlapCubicVolume,"Volume")<<G4endl;
+      G4cout<<space<<"================================================================"<<G4endl<<G4endl;
 
     // If the mother's intersects the voxel.
     //if(motherVoxelOverlapCubicVolume==0.)
-    if(motherVoxelOverlapCubicVolume==0.)
+    if(motherDoselOverlapCubicVolume==0.)
     {
       G4cout<<space<<" *** IS NOT IN THE DOSEL N°"<<index<<" ***"<<G4endl;
       daughterVolume=0.; // Only for testing
@@ -652,87 +853,58 @@ double GateDoseActor::VoxelIteration(G4VPhysicalVolume* motherPV,const int Gener
         space.resize(space.size()-3);
       return 0.;
     }
-  }
 
-  // Voxel information dump ////////////////////////////////////////////////
-  /*space+="   ";
-  G4cout<<space<<"* Voxel n°"<<index<<" informations :"<<G4endl
-        <<space<<" --> Translation :"<<G4endl
-        <<space<<"       Relative : X="<<G4BestUnit(doselTranslation.getX(),"Length")
-                                <<",Y="<<G4BestUnit(doselTranslation.getY(),"Length")
-                                <<",Z="<<G4BestUnit(doselTranslation.getZ(),"Length")<<G4endl
-        <<space<<"       Absolute : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getX(),"Length")
-                                <<",Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getY(),"Length")
-                                <<",Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(index).getZ(),"Length")<<G4endl
-        <<space<<" --> Rotation :"<<G4endl
-        <<space<<"       Relative : Phi="  <<doselRotation.getPhi()
-                                <<",Theta="<<doselRotation.getTheta()
-                                <<",Psi="  <<doselRotation.getPsi()<<G4endl
-        <<space<<"       Absolute : Phi="<<mDoseImage.GetValueImage().GetTransformMatrix().getPhi()
-                                <<",Theta="<<mDoseImage.GetValueImage().GetTransformMatrix().getTheta()
-                                <<",Psi="<<mDoseImage.GetValueImage().GetTransformMatrix().getPsi()<<G4endl;
-  space.resize(space.size()-3);*/
-  //////////////////////////////////////////////////////////////////////////
-
-  //////////////////////////////////////////////////////////////////////////
-  if(motherLV->GetNoDaughters()>0) // If the mother's volume has daughter(s).
-  {
-    //G4cout<<space<<"    Has "<<motherLV->GetNoDaughters()<<" daughter(s)"<<G4endl;
-    
-    for(int i=0;i<motherLV->GetNoDaughters();i++)
+    // Calculation for daughter(s) ///////////////////////////////////////////
+    if(motherLV->GetNoDaughters()>0) 
     {
-      G4VPhysicalVolume*  daughterPV(motherLV->GetDaughter(i));
-      G4LogicalVolume*    daughterLV(daughterPV->GetLogicalVolume());
-      G4VSolid*           daughterSV(daughterLV->GetSolid());
-
-      /*GateDebugMessage("Actor", 5,space<<"   * Daughter n°"<<i<<" : "<<daughterLV->GetName()<<" :"<<Gateendl
-          <<space<<"       Has "<<daughterLV->GetNoDaughters()<<" daughter(s)"<<Gateendl);*/
-
-      // Calculation of absolute translation and rotation.
-      G4RotationMatrix daughterRotation(daughterPV->GetObjectRotationValue());
-      G4ThreeVector    daughterTranslation(daughterPV->GetObjectTranslation());
-
-      if(Generation>0)
+      //G4cout<<space<<"    Has "<<motherLV->GetNoDaughters()<<" daughter(s)"<<G4endl;
+      
+      for(int i=0;i<motherLV->GetNoDaughters();i++)
       {
-        daughterTranslation=motherTranslation+daughterPV->GetObjectTranslation().transform(motherRotation);
-        daughterRotation=daughterRotation.transform(motherRotation);
+        G4VPhysicalVolume*  daughterPV(motherLV->GetDaughter(i));
+        G4LogicalVolume*    daughterLV(daughterPV->GetLogicalVolume());
+        G4VSolid*           daughterSV(daughterLV->GetSolid());
+
+        /*GateDebugMessage("Actor", 5,space<<"   * Daughter n°"<<i<<" : "<<daughterLV->GetName()<<" :"<<Gateendl
+            <<space<<"       Has "<<daughterLV->GetNoDaughters()<<" daughter(s)"<<Gateendl);*/
+
+        // Calculation of absolute translation and rotation.
+        G4RotationMatrix daughterRotation(daughterPV->GetObjectRotationValue());
+        G4ThreeVector    daughterTranslation(daughterPV->GetObjectTranslation());
+
+        if(Generation>0)
+        {
+          daughterTranslation=motherTranslation+daughterPV->GetObjectTranslation().transform(motherRotation);
+          daughterRotation=daughterRotation.transform(motherRotation);
+        }
+
+
+        // Substraction Mother-Daughter
+        motherSV=new G4SubtractionSolid(motherSV->GetName()+"-"+daughterSV->GetName(),
+                                      motherSV, // Already overlapped with voxel volume
+                                      daughterSV,
+                                      daughterPV->GetObjectRotation(), // Local rotation
+                                      daughterPV->GetObjectTranslation()); // Local translation
+
+        //G4cout<<space<<"  Mother-daughter overlap volume     : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl;
+
+        // Calculation of the mass of the Mother Progeny
+        motherProgenyMass+=VoxelIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation,index);
+        motherProgenyCubicVolume+=daughterVolume; // Only for verification.
       }
-
-
-      // Substraction Mother-Daughter
-      motherSV=new G4SubtractionSolid(motherSV->GetName()+"-"+daughterSV->GetName(),
-                                     motherSV, // Already overlapped with voxel volume
-                                     daughterSV,
-                                     daughterPV->GetObjectRotation(), // Local rotation
-                                     daughterPV->GetObjectTranslation()); // Local translation
-
-      //G4cout<<space<<"  Mother-daughter overlap volume     : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl;
-
-      // Calculation of the mass of the Mother Progeny
-      motherProgenyMass+=VoxelIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation,index);
-      motherProgenyCubicVolume+=daughterVolume; // Only for verification.
     }
-  }
-  /*else
-    G4cout<<space<<"    Has no daughter"<<G4endl;*/
-  //////////////////////////////////////////////////////////////////////////
+    /*else
+      G4cout<<space<<"    Has no daughter"<<G4endl;*/
+    //////////////////////////////////////////////////////////////////////////
 
-
-  // Mother mass & volume //////////////////////////////////////////////////
-  double motherCubicVolume(motherSV->GetCubicVolume());
-  if(motherPV->IsParameterised())
-  {
-    motherProgenyMass=doselMass;
-    motherProgenyCubicVolume=doselCubicVolume;
-  }
-  else
-  {
+    // Mother mass & volume //////////////////////////////////////////////////
+    double motherCubicVolume(motherSV->GetCubicVolume());
     motherMass=motherCubicVolume*motherDensity;
 
     motherProgenyMass+=motherMass;
     motherProgenyCubicVolume+=motherCubicVolume;
+    //////////////////////////////////////////////////////////////////////////
   }
-  //////////////////////////////////////////////////////////////////////////
 
   // Mother information dump ///////////////////////////////////////////////
   /*G4cout<<space<<"  Mother original volume     : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
@@ -792,75 +964,74 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
 
   if(FirstTime)
   {
-
-    //FIXME : Savoir si le volume associé au DoseActor a des filles. Si oui utiliser l'algo, si non utiliser la formule de la densité originelle. Faire un booléen.
-    //
-
     FirstTime=false;
-    bool mIsVoxelised(false);
+    //bool mIsVoxelised(false);
     VoxelDensity=0.;
     VoxelVolume=0.;
-    doselMass.resize(mDoseImage.GetValueImage().GetNumberOfValues(),0.);
+    doselMass.resize(mDoseImage.GetValueImage().GetNumberOfValues(),-1.);
 
     DAPV=G4PhysicalVolumeStore::GetInstance()->GetVolume(mVolumeName+"_phys");
     DALV=G4LogicalVolumeStore::GetInstance()->GetVolume(mVolumeName+"_log");
-
-    // Study of voxelised volumes:
-    //G4cout<<"DALV->GetVoxelHeader()->GetNoSlices():"<<DALV->GetVoxelHeader()->GetNoSlices()<<G4endl; // Doesn't work (invalid use of incomplete type ‘struct G4SmartVoxelHeader’)
-
     mHasDaughter=HasDaughter(DALV);
+
+    VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),index); //FIXME For testing only !!!!
 
     /*G4cout<<G4endl
           <<"DEBUG of DoseActor "<< GetObjectName()<<" :"<<G4endl
           <<" DA volume name   : "<<mVolumeName<<G4endl;
     if(mHasDaughter)
       G4cout<<" INFO : Has daughter(s)"<<G4endl;*/
-
-    if(mDoseImage.GetValueImage().GetNumberOfValues()>1&&DALV->GetSolid()->GetCubicVolume()>mDoseImage.GetVoxelVolume())
-      mIsVoxelised=true;
-
-    /*if(mIsVoxelised)
-      G4cout<<" INFO : Is voxelised"<<G4endl
-            <<"        Number of voxels : "<<mDoseImage.GetValueImage().GetNumberOfValues()<<G4endl;
-
-    G4cout        <<"   DALV->GetSolid()->GetCubicVolume() : "<<DALV->GetSolid()->GetCubicVolume()<<G4endl;
-    G4cout        <<"   mDoseImage.GetVoxelVolume() : "<<mDoseImage.GetVoxelVolume()<<G4endl;*/
-
-
     /*if(mHasDaughter&&!mIsVoxelised)
       voxelMass[0]=VolumeIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation()).first;
     else if(mHasDaughter)*/
+
+    /*time_t timer1,timer2;
+    time(&timer1);
+
       double totalMass(0.);
       for(long int i=0;i<mDoseImage.GetValueImage().GetNumberOfValues();i++)
       {
+        doselMass[i]=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),i);
+        totalMass+=doselMass[i];*/
+
+
         //if(i%10==0) std::cout<<" * Please wait ... "<<i*100/mDoseImage.GetValueImage().GetNumberOfValues()<<"%\r"<<std::flush;
         //G4cout<<" DEBUG : VoxelNx="<<mDoseImage.GetValueImage().GetVoxelNx()<<", VoxelNy="<<mDoseImage.GetValueImage().GetVoxelNy()<<", VoxelNz="<<mDoseImage.GetValueImage().GetVoxelNz()<<G4endl;
         /*G4cout<<" DEBUG : Index : "<<i<<G4endl;
         G4cout<<" DEBUG : Voxel size   : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelSize().getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelSize().getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelSize().getZ(),"Length")<<G4endl;
         G4cout<<" DEBUG : Voxel center : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCenterFromIndex(i).getZ(),"Length")<<G4endl;
-        G4cout<<" DEBUG : Voxel corner : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getZ(),"Length")<<G4endl;*/
-
-        doselMass[i]=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),i);
+        G4cout<<" DEBUG : Voxel corner : X="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getX(),"Length")<<", Y="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getY(),"Length")<<", Z="<<G4BestUnit(mDoseImage.GetValueImage().GetVoxelCornerFromIndex(i).getZ(),"Length")<<G4endl;
         //G4cout<<" DEBUG : doselMass["<<i<<"] : "<<G4BestUnit(doselMass[i],"Mass")<<G4endl;
-        totalMass+=doselMass[i];
-      }
-      G4cout<<" DEBUG : Dosels totalMass : "<<G4BestUnit(totalMass,"Mass")<<G4endl;
+      }*/
 
+    /*time(&timer2);
+    seconds=difftime(timer2,timer1);
+
+    G4cout<<G4endl;
+    G4cout<<" DEBUG : Dosels totalMass : "<<G4BestUnit(totalMass,"Mass")<<G4endl;
+    G4cout<<" DEBUG : Total time : "<<seconds<<" s"<<G4endl;
 
     GateDebugMessage("Actor", 5," DA volume           : "<<G4BestUnit(DALVCubicVolume,"Volume")<<Gateendl
           <<" DA original mass    : "<<G4BestUnit(DALV->GetMass(true,true,0),"Mass")<<" (propagated)"<<Gateendl
           <<" DA original mass    : "<<G4BestUnit(DALV->GetMass(false,false,0),"Mass")<<" (not propagated)"<<Gateendl
           <<" DA original density : "<<G4BestUnit(DALV->GetMass()/DALVCubicVolume,"Volumic Mass")<<Gateendl
           <<" DA corrected mass   : "<<G4BestUnit(VoxelMass,"Mass")<<Gateendl
-          <<" DA corrected density: "<<G4BestUnit(VoxelDensity,"Volumic Mass")<<Gateendl);
+          <<" DA corrected density: "<<G4BestUnit(VoxelDensity,"Volumic Mass")<<Gateendl);*/
   }
 
   double dose=0.;
-  double density;
-  if(mHasDaughter)
+  double density = step->GetPreStepPoint()->GetMaterial()->GetDensity();
+
+  /*if(mHasDaughter)
+  {
+    if(doselMass[index]==-1.)
+    {
+      nbofRecVoxels++;
+      doselMass[index]=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),index);
+      //if(nbofRecVoxels%100==0) std::cout<<" * Please wait ... "<<(double)nbofRecVoxels*100/(double)mDoseImage.GetValueImage().GetNumberOfValues()<<"% of dosels reconstructed ...\r"<<std::flush;
+    }
     density = doselMass[index]/mDoseImage.GetVoxelVolume();
-  else
-    density = step->GetPreStepPoint()->GetMaterial()->GetDensity();
+  }*/
 
 
   if (mIsDoseImageEnabled) {
@@ -960,6 +1131,14 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
   }
 
   if (mIsNumberOfHitsImageEnabled) mNumberOfHitsImage.AddValue(index, weight);
+
+  //if (mIsMassImageEnabled) mMassImage.AddValue(index, doselMass[index]);
+  if (mMassFirstTime&&mIsMassImageEnabled)// FIXME : For testing only!!!!!
+  {
+    mMassFirstTime=false;
+    for(int i=0;i<doselReconstructedMass.size();i++)
+      mMassImage.AddValue(i, doselReconstructedMass[i]/6.24151e+21); // FIXME : For testing only!!!!!
+  }
 
   GateDebugMessageDec("Actor", 4, "GateDoseActor -- UserSteppingActionInVoxel -- end\n");
 }

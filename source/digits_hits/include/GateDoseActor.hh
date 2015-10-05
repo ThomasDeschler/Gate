@@ -60,6 +60,7 @@ class GateDoseActor : public GateVImageActor
   void EnableDoseNormalisationToMax(bool b);
   void EnableDoseNormalisationToIntegral(bool b);
   void EnableDoseToWaterNormalisation(bool b) { mIsDoseToWaterNormalisationEnabled = b; mDoseToWaterImage.SetScaleFactor(1.0); }
+  void EnableMassImage(bool b) { mIsMassImageEnabled = b; }
 
   virtual void BeginOfRunAction(const G4Run*r);
   virtual void BeginOfEventAction(const G4Event * event);
@@ -101,29 +102,36 @@ protected:
   bool mIsNumberOfHitsImageEnabled;
   bool mIsDoseNormalisationEnabled;
   bool mIsDoseToWaterNormalisationEnabled;
+  bool mIsMassImageEnabled;
 
   GateImageWithStatistic mEdepImage;
   GateImageWithStatistic mDoseImage;
   GateImageWithStatistic mDoseToWaterImage;
   GateImageInt mNumberOfHitsImage;
   GateImageInt mLastHitEventImage;
+  GateImageDouble mMassImage;
 
   G4String mEdepFilename;
   G4String mDoseFilename;
   G4String mDoseToWaterFilename;
   G4String mNbOfHitsFilename;
+  G4String mMassFilename;
 
   G4EmCalculator * emcalc;
 
   //Added for Voxel algorithm
+  std::vector<double> doselReconstructedCubicVolume;
+  std::vector<double> doselReconstructedMass;
   std::vector<double> doselMass;
   std::vector<std::vector<std::vector<double> > > voxelCubicVolume;
   std::vector<std::vector<std::vector<double> > > voxelMass;
+  int nbofRecVoxels;
   double VoxelDensity;
   double VoxelVolume;
   double daughterVolume;
   bool   FirstTime;
   bool   matrixFirstTime;
+  bool   mMassFirstTime;
   bool   mHasDaughter;
   G4VPhysicalVolume* DAPV;
   G4LogicalVolume* DALV;
