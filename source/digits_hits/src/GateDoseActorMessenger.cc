@@ -32,7 +32,7 @@ GateDoseActorMessenger::GateDoseActorMessenger(GateDoseActor* sensor)
   pEnableEdepSquaredCmd= 0;
   pEnableEdepUncertaintyCmd= 0;
   pEnableNumberOfHitsCmd= 0;
-  pEnableMassCmd= 0;
+  pEnableNewMassCmd= 0;
 
   BuildCommands(baseName+sensor->GetObjectName());
 }
@@ -55,7 +55,7 @@ GateDoseActorMessenger::~GateDoseActorMessenger()
   if(pEnableEdepSquaredCmd) delete pEnableEdepSquaredCmd;
   if(pEnableEdepUncertaintyCmd) delete pEnableEdepUncertaintyCmd;
   if(pEnableNumberOfHitsCmd) delete pEnableNumberOfHitsCmd;
-  if(pEnableMassCmd) delete pEnableMassCmd;
+  if(pEnableNewMassCmd) delete pEnableNewMassCmd;
 }
 //-----------------------------------------------------------------------------
 
@@ -129,10 +129,10 @@ void GateDoseActorMessenger::BuildCommands(G4String base)
   guid = G4String("Enable number of hits computation");
   pEnableNumberOfHitsCmd->SetGuidance(guid);
 
-  n = base+"/enableMass";
-  pEnableMassCmd = new G4UIcmdWithABool(n, this);
-  guid = G4String("Enable mass computation");
-  pEnableMassCmd->SetGuidance(guid);
+  n = base+"/enableNewMass";
+  pEnableNewMassCmd = new G4UIcmdWithABool(n, this);
+  guid = G4String("Enable the new mass calculation algorithm");
+  pEnableNewMassCmd->SetGuidance(guid);
 }
 //-----------------------------------------------------------------------------
 
@@ -155,7 +155,7 @@ void GateDoseActorMessenger::SetNewValue(G4UIcommand* cmd, G4String newValue)
   if (cmd == pEnableDoseNormToIntegralCmd) pDoseActor->EnableDoseNormalisationToIntegral(pEnableDoseNormToIntegralCmd->GetNewBoolValue(newValue));
   if (cmd == pEnableDoseToWaterNormCmd) pDoseActor->EnableDoseToWaterNormalisation(pEnableDoseToWaterNormCmd->GetNewBoolValue(newValue));
 
-  if (cmd == pEnableMassCmd) pDoseActor->EnableMassImage(pEnableMassCmd->GetNewBoolValue(newValue));
+  if (cmd == pEnableNewMassCmd) pDoseActor->EnableNewMass(pEnableNewMassCmd->GetNewBoolValue(newValue));
 
   GateImageActorMessenger::SetNewValue( cmd, newValue);
 }

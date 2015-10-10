@@ -30,6 +30,7 @@ See GATE/LICENSE.txt for further details
 #include "GateDoseActorMessenger.hh"
 #include "GateImageWithStatistic.hh"
 
+#include "GateVoxelizedMass.hh"
 
 class G4EmCalculator;
 
@@ -60,7 +61,7 @@ class GateDoseActor : public GateVImageActor
   void EnableDoseNormalisationToMax(bool b);
   void EnableDoseNormalisationToIntegral(bool b);
   void EnableDoseToWaterNormalisation(bool b) { mIsDoseToWaterNormalisationEnabled = b; mDoseToWaterImage.SetScaleFactor(1.0); }
-  void EnableMassImage(bool b) { mIsMassImageEnabled = b; }
+  void EnableNewMass(bool b) { mIsNewMassEnabled = b; }
 
   virtual void BeginOfRunAction(const G4Run*r);
   virtual void BeginOfEventAction(const G4Event * event);
@@ -77,14 +78,10 @@ class GateDoseActor : public GateVImageActor
   virtual void Initialize(G4HCofThisEvent*){}
   virtual void EndOfEvent(G4HCofThisEvent*){}
 
-  //Added for Voxel algorithm
-  bool HasDaughter(const G4LogicalVolume* doseactorLV);
-  std::pair<double,G4VSolid*> VolumeIteration(const G4VPhysicalVolume* motherPV,int generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation);
-  double VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
-
 protected:
   GateDoseActor(G4String name, G4int depth=0);
   GateDoseActorMessenger * pMessenger;
+  GateVoxelizedMass pVoxelizedMass;
 
   int mCurrentEvent;
   StepHitType mUserStepHitType;
@@ -102,7 +99,7 @@ protected:
   bool mIsNumberOfHitsImageEnabled;
   bool mIsDoseNormalisationEnabled;
   bool mIsDoseToWaterNormalisationEnabled;
-  bool mIsMassImageEnabled;
+  bool mIsNewMassEnabled;
 
   GateImageWithStatistic mEdepImage;
   GateImageWithStatistic mDoseImage;
@@ -115,30 +112,8 @@ protected:
   G4String mDoseFilename;
   G4String mDoseToWaterFilename;
   G4String mNbOfHitsFilename;
-  G4String mMassFilename;
 
   G4EmCalculator * emcalc;
-
-  //Added for Voxel algorithm
-  std::vector<double> doselReconstructedCubicVolume;
-  std::vector<double> doselReconstructedMass;
-  std::vector<double> doselMass;
-  std::vector<std::vector<std::vector<double> > > voxelCubicVolume;
-  std::vector<std::vector<std::vector<double> > > voxelMass;
-  int nbofRecVoxels;
-  double VoxelDensity;
-  double VoxelVolume;
-  double daughterVolume;
-  bool   FirstTime;
-  bool   matrixFirstTime;
-  bool   mMassFirstTime;
-  bool   mHasDaughter;
-  G4VPhysicalVolume* DAPV;
-  G4LogicalVolume* DALV;
-  G4String space;
-  double seconds;
-  bool firstTimeTimer;
-
 };
 
 MAKE_AUTO_CREATOR_ACTOR(DoseActor,GateDoseActor)
