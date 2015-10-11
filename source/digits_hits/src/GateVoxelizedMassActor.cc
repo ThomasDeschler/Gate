@@ -50,13 +50,12 @@ void GateVoxelizedMassActor::Construct()
   GateVImageActor::Construct();
 
   // Record the stepHitType
-  mUserStepHitType = mStepHitType;
+  //mUserStepHitType = mStepHitType;
 
-  // Enable callbacks
   EnableBeginOfRunAction(true);
-  EnableBeginOfEventAction(true);
-  EnablePreUserTrackingAction(true);
-  EnableUserSteppingAction(true);
+  EnableBeginOfEventAction(false);
+  EnablePreUserTrackingAction(false);
+  EnableUserSteppingAction(false);
 
   // Check if at least one image is enabled
   if (!mIsMassImageEnabled)

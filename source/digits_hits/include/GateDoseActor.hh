@@ -62,6 +62,7 @@ class GateDoseActor : public GateVImageActor
   void EnableDoseNormalisationToIntegral(bool b);
   void EnableDoseToWaterNormalisation(bool b) { mIsDoseToWaterNormalisationEnabled = b; mDoseToWaterImage.SetScaleFactor(1.0); }
   void EnableNewMass(bool b) { mIsNewMassEnabled = b; }
+  void InputNewMass(G4String b) { mInputNewMass = b; }
 
   virtual void BeginOfRunAction(const G4Run*r);
   virtual void BeginOfEventAction(const G4Event * event);
@@ -100,6 +101,7 @@ protected:
   bool mIsDoseNormalisationEnabled;
   bool mIsDoseToWaterNormalisationEnabled;
   bool mIsNewMassEnabled;
+  G4String mInputNewMass;
 
   GateImageWithStatistic mEdepImage;
   GateImageWithStatistic mDoseImage;

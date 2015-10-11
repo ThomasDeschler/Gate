@@ -37,7 +37,7 @@ class GateVoxelizedMass
   std::vector<double> GetVoxelMassVector();
   virtual void GenerateVectors();
   virtual void GenerateVoxels();
-  virtual void ParameterizedVolume(const int index);
+  virtual std::pair<double,double> ParameterizedVolume(const int index);
   virtual std::pair<double,double> VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
 
  protected:

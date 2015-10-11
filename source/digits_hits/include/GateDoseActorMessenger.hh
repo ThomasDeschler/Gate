@@ -17,6 +17,7 @@ See GATE/LICENSE.txt for further details
 #define GATEDOSEACTORMESSENGER_HH
 
 #include "G4UIcmdWithABool.hh"
+#include "G4UIcmdWithAString.hh"
 #include "GateImageActorMessenger.hh"
 
 class GateDoseActor;
@@ -46,6 +47,7 @@ protected:
   G4UIcmdWithABool * pEnableDoseNormToIntegralCmd;
   G4UIcmdWithABool * pEnableDoseToWaterNormCmd;
   G4UIcmdWithABool * pEnableNewMassCmd;
+  G4UIcmdWithAString * pInputNewMassCmd;
 };
 
 #endif /* end #define GATEDOSEACTORMESSENGER_HH*/

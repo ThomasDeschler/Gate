@@ -42,6 +42,7 @@ GateDoseActor::GateDoseActor(G4String name, G4int depth):
   mIsDoseNormalisationEnabled = false;
   mIsDoseToWaterNormalisationEnabled = false;
   mIsNewMassEnabled = false;
+  mInputNewMass = "";
 
   pMessenger = new GateDoseActorMessenger(this);
   GateDebugMessageDec("Actor",4,"GateDoseActor() -- end\n");
@@ -295,6 +296,8 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
 
   double dose=0.;
   double density = step->GetPreStepPoint()->GetMaterial()->GetDensity();
+
+  //G4cout<<"Test :"<<mInputNewMass<<G4endl;
 
   if(mIsNewMassEnabled)
     density = pVoxelizedMass.GetVoxelMass(index)/mDoseImage.GetVoxelVolume();
