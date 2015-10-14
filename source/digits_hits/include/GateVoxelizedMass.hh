@@ -37,7 +37,10 @@ class GateVoxelizedMass
   std::vector<double> GetVoxelMassVector();
   virtual void GenerateVectors();
   virtual void GenerateVoxels();
+  virtual void GenerateDosels(const int index);
   virtual std::pair<double,double> ParameterizedVolume(const int index);
+  virtual void VolumeIteration(const G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation);
+  virtual G4VSolid* GetSV(const G4String SVName);
   virtual std::pair<double,double> VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
 
  protected:
@@ -53,9 +56,13 @@ class GateVoxelizedMass
   std::pair<double,double> doselReconstructedData;
   std::vector<double> doselReconstructedCubicVolume;
   std::vector<double> doselReconstructedMass;
+  std::vector<double> doselMin;
+  std::vector<double> doselMax;
 
   std::vector<std::vector<std::vector<double> > > voxelCubicVolume;
   std::vector<std::vector<std::vector<double> > > voxelMass;
+
+  std::vector<G4VSolid*> vectorSV;
 
   GateImageDouble mImage;
   G4String mVolumeName;
