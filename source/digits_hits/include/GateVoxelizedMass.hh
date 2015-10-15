@@ -42,6 +42,7 @@ class GateVoxelizedMass
   virtual void VolumeIteration(const G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation);
   virtual G4VSolid* GetSV(const G4String SVName);
   virtual std::pair<double,double> VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
+  virtual std::pair<double,double> OldVoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
 
  protected:
 
