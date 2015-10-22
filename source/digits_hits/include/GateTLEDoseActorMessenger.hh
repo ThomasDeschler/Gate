@@ -36,6 +36,7 @@ protected:
   G4UIcmdWithABool * pEnableDoseSquaredCmd;
   G4UIcmdWithABool * pEnableEdepSquaredCmd;
   G4UIcmdWithABool * pEnableEdepUncertaintyCmd;
+  G4UIcmdWithABool * pEnableNewMassCmd;
 
 };
 

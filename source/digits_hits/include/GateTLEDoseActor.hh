@@ -22,6 +22,8 @@
 #include "GateMaterialMuHandler.hh"
 #include "G4UnitsTable.hh"
 
+#include "GateVoxelizedMass.hh"
+
 class GateTLEDoseActor : public GateVImageActor
 {
 public:
@@ -42,6 +44,7 @@ public:
   void EnableEdepUncertaintyImage(bool b) { mIsEdepUncertaintyImageEnabled = b; }
   void EnableDoseImage(bool b) { mIsDoseImageEnabled = b; }
   void EnableDoseSquaredImage(bool b) { mIsDoseSquaredImageEnabled = b; }
+  void EnableNewMass(bool b) { mIsNewMassEnabled = b; }
 
   virtual void BeginOfRunAction(const G4Run*r);
   virtual void BeginOfEventAction(const G4Event * event);
@@ -65,12 +68,14 @@ public:
 protected:
   GateTLEDoseActor(G4String name, G4int depth=0);
   GateTLEDoseActorMessenger * pMessenger;
+  GateVoxelizedMass pVoxelizedMass;
 
   GateImageWithStatistic mDoseImage;
   //GateImageWithStatistic mPrimaryDoseImage;
   //GateImageWithStatistic mSecondaryDoseImage;
   GateImageWithStatistic mEdepImage;
   GateImage mLastHitEventImage;
+  GateImageDouble mMassImage;
 
   GateMaterialMuHandler* mMaterialHandler;
   G4String mDoseFilename;
@@ -86,6 +91,7 @@ protected:
   bool mIsEdepUncertaintyImageEnabled;
   bool mIsDoseImageEnabled;
   bool mIsDoseSquaredImageEnabled;
+  bool mIsNewMassEnabled;
   int mCurrentEvent;
   G4double outputEnergy;
   G4double totalEnergy;

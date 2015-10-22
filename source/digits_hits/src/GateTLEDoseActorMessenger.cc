@@ -25,6 +25,7 @@ GateTLEDoseActorMessenger::GateTLEDoseActorMessenger(GateTLEDoseActor* sensor)
   pEnableDoseSquaredCmd= 0;
   pEnableEdepSquaredCmd= 0;
   pEnableEdepUncertaintyCmd= 0;
+  pEnableNewMassCmd= 0;
 
   BuildCommands(baseName+sensor->GetObjectName());
 }
@@ -40,6 +41,7 @@ GateTLEDoseActorMessenger::~GateTLEDoseActorMessenger()
   if(pEnableDoseSquaredCmd) delete pEnableDoseSquaredCmd;
   if(pEnableEdepSquaredCmd) delete pEnableEdepSquaredCmd;
   if(pEnableEdepUncertaintyCmd) delete pEnableEdepUncertaintyCmd;
+  if(pEnableNewMassCmd) delete pEnableNewMassCmd;
 
 }
 //-----------------------------------------------------------------------------
@@ -79,6 +81,11 @@ void GateTLEDoseActorMessenger::BuildCommands(G4String base)
   guid = G4String("Enable uncertainty edep computation");
   pEnableEdepUncertaintyCmd->SetGuidance(guid);
 
+  n = base+"/enableNewMass";
+  pEnableNewMassCmd = new G4UIcmdWithABool(n, this);
+  guid = G4String("Enable the new mass calculation algorithm");
+  pEnableNewMassCmd->SetGuidance(guid);
+
 }
 //-----------------------------------------------------------------------------
 
@@ -92,6 +99,7 @@ void GateTLEDoseActorMessenger::SetNewValue(G4UIcommand* cmd, G4String newValue)
  if (cmd == pEnableDoseSquaredCmd) pDoseActor->EnableDoseSquaredImage(pEnableDoseSquaredCmd->GetNewBoolValue(newValue));
  if (cmd == pEnableEdepSquaredCmd) pDoseActor->EnableEdepSquaredImage(pEnableEdepSquaredCmd->GetNewBoolValue(newValue));
  if (cmd == pEnableEdepUncertaintyCmd) pDoseActor->EnableEdepUncertaintyImage(pEnableEdepUncertaintyCmd->GetNewBoolValue(newValue));
+  if (cmd == pEnableNewMassCmd) pDoseActor->EnableNewMass(pEnableNewMassCmd->GetNewBoolValue(newValue));
 
  GateImageActorMessenger::SetNewValue( cmd, newValue);
 

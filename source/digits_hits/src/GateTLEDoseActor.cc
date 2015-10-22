@@ -26,12 +26,14 @@ GateTLEDoseActor::GateTLEDoseActor(G4String name, G4int depth):
   mCurrentEvent=-1;
   pMessenger = new GateTLEDoseActorMessenger(this);
   mMaterialHandler = GateMaterialMuHandler::GetInstance();
+  //mMaterialHandler->SetDatabaseName("NIST");
   mIsEdepImageEnabled = false;
   mIsDoseUncertaintyImageEnabled = false;
   mIsLastHitEventImageEnabled = false;
   mIsEdepSquaredImageEnabled = false;
   mIsEdepUncertaintyImageEnabled = false;
   mIsDoseSquaredImageEnabled = false;
+  mIsNewMassEnabled = false;
 
 }
 //-----------------------------------------------------------------------------
@@ -69,6 +71,7 @@ void GateTLEDoseActor::Construct() {
   SetOriginTransformAndFlagToImage(mDoseImage);
   SetOriginTransformAndFlagToImage(mEdepImage);
   SetOriginTransformAndFlagToImage(mLastHitEventImage);
+  SetOriginTransformAndFlagToImage(mMassImage);
 
   if(mIsEdepSquaredImageEnabled || mIsEdepUncertaintyImageEnabled ||
      mIsDoseSquaredImageEnabled || mIsDoseUncertaintyImageEnabled){
@@ -98,6 +101,12 @@ void GateTLEDoseActor::Construct() {
     mDoseImage.SetOrigin(mOrigin);
   }
 
+  if (mIsNewMassEnabled) {
+    mMassImage.SetResolutionAndHalfSize(mResolution, mHalfSize, mPosition);
+    mMassImage.Allocate();
+    pVoxelizedMass.Initialize(mVolumeName,mMassImage);
+  }
+
   ConversionFactor = e_SI * 1.0e11;
   VoxelVolume = GetDoselVolume();
   ResetData();
@@ -120,6 +129,7 @@ void GateTLEDoseActor::ResetData() {
   if (mIsLastHitEventImageEnabled) mLastHitEventImage.Fill(-1);
   if (mIsEdepImageEnabled) mEdepImage.Reset();
   if (mIsDoseImageEnabled) mDoseImage.Reset();
+  if (mIsNewMassEnabled) mMassImage.Fill(0);
 }
 //-----------------------------------------------------------------------------
 
@@ -157,8 +167,11 @@ void GateTLEDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* 
     G4double distance = step->GetStepLength();
     G4double energy = PreStep->GetKineticEnergy();
     double muenOverRho = mMaterialHandler->GetMuEnOverRho(PreStep->GetMaterialCutsCouple(), energy);
+    double muen = mMaterialHandler->GetMuEn(PreStep->GetMaterialCutsCouple(), energy);
     //G4double dose = ConversionFactor*energy*muenOverRho*distance/VoxelVolume;
     G4double dose = ConversionFactor*energy*muenOverRho*distance/mDoseImage.GetVoxelVolume();
+    if(mIsNewMassEnabled)
+      dose = ConversionFactor*energy*muen*distance/pVoxelizedMass.GetVoxelMass(index);
     G4double edep = 0.1*energy*muenOverRho*distance*PreStep->GetMaterial()->GetDensity()/(g/cm3);
     bool sameEvent=true;
 
