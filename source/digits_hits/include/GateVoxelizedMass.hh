@@ -6,7 +6,6 @@ of the GNU Lesser General  Public Licence (LGPL)
 See GATE/LICENSE.txt for further details
 ----------------------*/
 
-
 /*!
   \class  GateVoxelizedMassActor
   \author Thomas DESCHLER (thomas.deschler@iphc.cnrs.fr)
@@ -28,8 +27,7 @@ class GateVoxelizedMass
 {
  public:
 
-  GateVoxelizedMass();
-
+  GateVoxelizedMass() {}
   virtual ~GateVoxelizedMass() {}
 
   void Initialize(const G4String mExtVolumeName, const GateImageDouble mExtImage);
@@ -54,7 +52,9 @@ class GateVoxelizedMass
 
   double doselReconstructedTotalCubicVolume;
   double doselReconstructedTotalMass;
+
   std::pair<double,double> doselReconstructedData;
+
   std::vector<double> doselReconstructedCubicVolume;
   std::vector<double> doselReconstructedMass;
   std::vector<double> doselMin;
@@ -66,11 +66,13 @@ class GateVoxelizedMass
   std::vector<G4VSolid*> vectorSV;
 
   GateImageDouble mImage;
+
   G4String mVolumeName;
+  G4String space;
+
   bool mIsParameterised;
   bool mIsVecGenerated;
 
-  G4String space;
   int seconds;
 
 };
