@@ -29,10 +29,12 @@ void GateVoxelizedMass::Initialize(const G4String mExtVolumeName, const GateImag
   space="";
   mVolumeName=mExtVolumeName;
   mImage=mExtImage;
+
   //G4cout<<"mImage.GetNumberOfValues()="<<mImage.GetNumberOfValues()<<G4endl;
-  /*G4cout<<"mImage.GetVoxelNx()="<<mImage.GetVoxelNx()<<G4endl
-          <<"mImage.GetVoxelNy()="<<mImage.GetVoxelNy()<<G4endl
-          <<"mImage.GetVoxelNz()="<<mImage.GetVoxelNz()<<G4endl;*/
+  //G4cout<<"mImage.GetVoxelNx()="<<mImage.GetVoxelNx()<<G4endl
+  //      <<"mImage.GetVoxelNy()="<<mImage.GetVoxelNy()<<G4endl
+  //      <<"mImage.GetVoxelNz()="<<mImage.GetVoxelNz()<<G4endl;
+
   mIsParameterised=false;
   mIsVecGenerated=false;
 

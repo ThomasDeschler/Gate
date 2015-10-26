@@ -31,8 +31,10 @@ class GateVoxelizedMass
   virtual ~GateVoxelizedMass() {}
 
   void Initialize(const G4String mExtVolumeName, const GateImageDouble mExtImage);
+
   double GetVoxelMass(const int index);
   std::vector<double> GetVoxelMassVector();
+
   virtual void GenerateVectors();
   virtual void GenerateVoxels();
   virtual void GenerateDosels(const int index);
