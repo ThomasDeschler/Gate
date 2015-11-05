@@ -173,7 +173,7 @@ void GateTLEDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* 
     //G4double dose = ConversionFactor*energy*muenOverRho*distance/VoxelVolume;
     G4double dose = ConversionFactor*energy*muenOverRho*distance/mDoseImage.GetVoxelVolume();
     if(mIsNewMassEnabled)
-      dose = ConversionFactor*energy*muen*distance/pVoxelizedMass.GetVoxelMass(index)/g;
+      dose = ConversionFactor*energy*muen*distance/pVoxelizedMass.GetVoxelMass(index)*g;
 
     G4double edep = 0.1*energy*muenOverRho*distance*PreStep->GetMaterial()->GetDensity()/(g/cm3);
     bool sameEvent=true;
