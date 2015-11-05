@@ -117,7 +117,7 @@ void GateVoxelizedMassActor::BeginOfRunAction(const G4Run * r)
     voxelMass=pVoxelizedMass.GetVoxelMassVector();
 
     for(size_t i=0;i<voxelMass.size();i++)
-      mMassImage.AddValue(i,voxelMass[i]/g);
+      mMassImage.AddValue(i,voxelMass[i]/kg);
   }
 }
 //-----------------------------------------------------------------------------
