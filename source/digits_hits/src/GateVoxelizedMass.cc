@@ -26,14 +26,8 @@
 //-----------------------------------------------------------------------------
 void GateVoxelizedMass::Initialize(const G4String mExtVolumeName, const GateImageDouble mExtImage)
 {
-  space="";
   mVolumeName=mExtVolumeName;
   mImage=mExtImage;
-
-  //G4cout<<"mImage.GetNumberOfValues()="<<mImage.GetNumberOfValues()<<G4endl;
-  //G4cout<<"mImage.GetVoxelNx()="<<mImage.GetVoxelNx()<<G4endl
-  //      <<"mImage.GetVoxelNy()="<<mImage.GetVoxelNy()<<G4endl
-  //      <<"mImage.GetVoxelNz()="<<mImage.GetVoxelNz()<<G4endl;
 
   mIsParameterised=false;
   mIsVecGenerated=false;
@@ -57,8 +51,6 @@ void GateVoxelizedMass::Initialize(const G4String mExtVolumeName, const GateImag
     mIsParameterised=true;
     GateVoxelizedMass::GenerateVoxels();
   }
-  //else
-    //VolumeIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation());
 }
 //-----------------------------------------------------------------------------
 
@@ -70,8 +62,7 @@ double GateVoxelizedMass::GetVoxelMass(const int index)
     if(mIsParameterised)
       doselReconstructedData=ParameterizedVolume(index);
     else
-      //doselReconstructedData=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),index);
-      doselReconstructedData=OldVoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),index);
+      doselReconstructedData=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),index);
 
     doselReconstructedMass[index]=doselReconstructedData.first;
     doselReconstructedCubicVolume[index]=doselReconstructedData.second;
@@ -105,13 +96,11 @@ void GateVoxelizedMass::GenerateVectors()
   for(long int i=0;i<mImage.GetNumberOfValues();i++)
   {
     time(&timer3);
-    //std::cout<<round((double)i*100./(double)mImage.GetNumberOfValues())<<"%\r";
 
     if(mIsParameterised)
       doselReconstructedData=ParameterizedVolume(i);
     else
-      //doselReconstructedData=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),i);
-      doselReconstructedData=OldVoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),i);
+      doselReconstructedData=VoxelIteration(DAPV,0,DAPV->GetObjectRotationValue(),DAPV->GetObjectTranslation(),i);
 
     doselReconstructedMass[i]=doselReconstructedData.first;
     doselReconstructedCubicVolume[i]=doselReconstructedData.second;
@@ -137,7 +126,7 @@ void GateVoxelizedMass::GenerateVectors()
     G4cout<<"     Number of voxels : "<<DALV->GetDaughter(0)->GetMultiplicity()<<G4endl;
   G4cout<<"     Number of dosels : "<<mImage.GetNumberOfValues()<<G4endl;
   G4cout<<"     Dosels reconstructed total mass : "<<G4BestUnit(doselReconstructedTotalMass,"Mass")<<G4endl;
-  G4cout<<space<<"     Dosels reconstructed total cubic volume : "<<G4BestUnit(doselReconstructedTotalCubicVolume,"Volume")<<G4endl;
+  G4cout<<"     Dosels reconstructed total cubic volume : "<<G4BestUnit(doselReconstructedTotalCubicVolume,"Volume")<<G4endl;
   G4cout<<"================================================================"<<G4endl<<G4endl;
 
   mIsVecGenerated=true;
@@ -150,7 +139,6 @@ void GateVoxelizedMass::GenerateVoxels()
   G4VPhysicalVolume*     daughterPV(DALV->GetDaughter(0));
   G4VPVParameterisation* daughterParameterisation(daughterPV->GetParameterisation());
 
-  // Processing the voxels in the parameterized volume /////
   DABox=(G4Box*)DALV->GetSolid();
   voxelBox=(G4Box*)daughterParameterisation->ComputeSolid(0,daughterPV);
 
@@ -161,15 +149,6 @@ void GateVoxelizedMass::GenerateVoxels()
   const int nxDosel=round(DABox->GetXHalfLength()/(mImage.GetVoxelSize().getX()/2.)),
             nyDosel=round(DABox->GetYHalfLength()/(mImage.GetVoxelSize().getY()/2.)),
             nzDosel=round(DABox->GetZHalfLength()/(mImage.GetVoxelSize().getZ()/2.));
-
-  //G4cout<<" * Voxels info :"<<G4endl;
-  //G4cout<<"Total x voxels="<<nxVoxel<<G4endl;
-  //G4cout<<"Total y Voxels="<<nyVoxel<<G4endl;
-  //G4cout<<"Total z Voxels="<<nzVoxel<<G4endl;
-  //G4cout<<" * Dosels info :"<<G4endl;
-  //G4cout<<"Total x dosels="<<nxDosel<<G4endl;
-  //G4cout<<"Total y dosels="<<nyDosel<<G4endl;
-  //G4cout<<"Total z dosels="<<nzDosel<<G4endl;
 
   if(nxDosel>nxVoxel||nyDosel>nyVoxel||nzDosel>nzVoxel)
       GateError("!!! ERROR : The dosel resolution is smaller than the voxel resolution !!!"<<Gateendl);
@@ -187,18 +166,13 @@ void GateVoxelizedMass::GenerateVoxels()
     }
   }
 
-  for(signed long int i=0;i<daughterPV->GetMultiplicity();i++) // Loop over the voxels
+  for(signed long int i=0;i<daughterPV->GetMultiplicity();i++)
   {
     daughterParameterisation->ComputeTransformation(i,daughterPV);
 
-    //Computing voxel x y z :
     const int xVoxel(round((DABox->GetXHalfLength()+daughterPV->GetTranslation().getX()-voxelBox->GetXHalfLength())/(voxelBox->GetXHalfLength()*2.0))),
               yVoxel(round((DABox->GetYHalfLength()+daughterPV->GetTranslation().getY()-voxelBox->GetYHalfLength())/(voxelBox->GetYHalfLength()*2.0))),
               zVoxel(round((DABox->GetZHalfLength()+daughterPV->GetTranslation().getZ()-voxelBox->GetZHalfLength())/(voxelBox->GetZHalfLength()*2.0)));
-
-    //G4cout<<"xVoxel="<<xVoxel<<G4endl;
-    //G4cout<<"yVoxel="<<yVoxel<<G4endl;
-    //G4cout<<"zVoxel="<<zVoxel<<G4endl;
 
     if(xVoxel>=nxVoxel||yVoxel>=nyVoxel||zVoxel>=nzVoxel)
       GateError("!!! ERROR : Too many voxels !!! (xVoxel="<<xVoxel<<",yVoxel="<<yVoxel<<",zVoxel="<<zVoxel<<")"<<Gateendl);
@@ -206,10 +180,6 @@ void GateVoxelizedMass::GenerateVoxels()
     voxelCubicVolume[xVoxel][yVoxel][zVoxel]=daughterParameterisation->ComputeSolid(i,daughterPV)->GetCubicVolume();
     voxelMass[xVoxel][yVoxel][zVoxel]=daughterParameterisation->ComputeMaterial(i,daughterPV)->GetDensity()*daughterParameterisation->ComputeSolid(i,daughterPV)->GetCubicVolume();
   }
-  /////////////////////////////////////////////////////////////////////////
-
-  doselReconstructedCubicVolume.resize(mImage.GetNumberOfValues(),-1.);
-  doselReconstructedMass.resize(mImage.GetNumberOfValues(),-1.);
 }
 //-----------------------------------------------------------------------------
 
@@ -227,11 +197,6 @@ void GateVoxelizedMass::GenerateDosels(const int index)
   doselMax[0]=(DABox->GetXHalfLength()+mImage.GetVoxelCenterFromIndex(index).getX()+mImage.GetVoxelSize().getX()/2.0)/(voxelBox->GetXHalfLength()*2.0);
   doselMax[1]=(DABox->GetYHalfLength()+mImage.GetVoxelCenterFromIndex(index).getY()+mImage.GetVoxelSize().getY()/2.0)/(voxelBox->GetYHalfLength()*2.0);
   doselMax[2]=(DABox->GetZHalfLength()+mImage.GetVoxelCenterFromIndex(index).getZ()+mImage.GetVoxelSize().getZ()/2.0)/(voxelBox->GetZHalfLength()*2.0);
-
-  //G4cout<<" * Dosel info :"<<G4endl;
-  //G4cout<<"xmin="<<round(doselMin[0])<<", xmax="<<round(doselMax[0])<<G4endl;
-  //G4cout<<"ymin="<<round(doselMin[1])<<", ymax="<<round(doselMax[1])<<G4endl;
-  //G4cout<<"zmin="<<round(doselMin[2])<<", zmax="<<round(doselMax[2])<<G4endl;
 }
 //-----------------------------------------------------------------------------
 
@@ -250,8 +215,6 @@ std::pair<double,double> GateVoxelizedMass::ParameterizedVolume(const int index)
         std::vector<std::vector<double> > coef(3);
 
         origCoord[0]=x; origCoord[1]=y; origCoord[2]=z;
-
-        // Dimension of the vectors : x = 0, y = 1, z = 2
 
         for(int dim=0;dim<3;dim++)
         {
@@ -355,214 +318,19 @@ std::pair<double,double> GateVoxelizedMass::ParameterizedVolume(const int index)
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-void GateVoxelizedMass::VolumeIteration(const G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation)
-{
-  G4LogicalVolume* motherLV(motherPV->GetLogicalVolume());
-  G4VSolid* motherSV(motherLV->GetSolid());
-
-  /*G4cout<<G4endl<<space<<"================================================================"<<G4endl;
-  G4cout<<space<<" * SUMMARY : Mother : "<<motherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
-        <<space<<"    Material           : "<<motherLV->GetMaterial()->GetName()<<G4endl
-        <<space<<"    Density            : "<<G4BestUnit(motherLV->GetMaterial()->GetDensity(),"Volumic Mass")<<G4endl
-        <<space<<"    Original volume    : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"    Diff volume        : "<<(motherSV->GetCubicVolume()/motherLV->GetSolid()->GetCubicVolume())<<G4endl
-        <<space<<"    Rotation :"<<G4endl
-        <<space<<"       Relative : Phi="  <<G4BestUnit(motherPV->GetObjectRotationValue().getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(motherPV->GetObjectRotationValue().getTheta(),"Angle")<<G4endl
-        <<space<<"       Absolute : Phi="<<G4BestUnit(motherRotation.getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(motherRotation.getTheta(),"Angle")<<G4endl;
-    G4cout<<space<<"================================================================"<<G4endl<<G4endl;*/
-
-  for(int i=0;i<motherLV->GetNoDaughters();i++)
-  {
-    const G4VPhysicalVolume*  daughterPV(motherLV->GetDaughter(i));
-    G4VSolid*                 daughterSV(daughterPV->GetLogicalVolume()->GetSolid());
-
-    // Relative translation and rotation.
-    G4RotationMatrix daughterRotation(daughterPV->GetObjectRotationValue());
-    G4ThreeVector    daughterTranslation(daughterPV->GetObjectTranslation());
-
-    // Substraction Mother-Daughter
-    motherSV=new G4SubtractionSolid(motherSV->GetName(),
-                                    motherSV, // Already overlapped with voxel volume
-                                    daughterSV,
-                                    &daughterRotation, // Local rotation
-                                    daughterTranslation); // Local translation
-
-    //G4cout<<space<<"Mother's volume not overlapped by children : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl;
-
-    if(Generation>0)
-    {
-      daughterTranslation=motherTranslation+daughterPV->GetObjectTranslation().transform(motherRotation);
-      daughterRotation=daughterRotation.transform(motherRotation);
-    }
-
-    VolumeIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation);
-  }
-  vectorSV.push_back(motherSV);
-}
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-G4VSolid* GateVoxelizedMass::GetSV(const G4String SVName)
-{
-  for(size_t i=0;i<vectorSV.size();i++)
-  {
-    if(vectorSV[i]->GetName()==SVName)
-      return vectorSV[i];
-  }
-  GateError("Can't find "<<SVName<<" inside vectorSV !"<<Gateendl);
-}
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
 std::pair<double,double> GateVoxelizedMass::VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation,const int index)
 {
-  //WORK IN PROGRESS
   //FIXME : Doesn't work with daughter overlapping its mother.
 
   if(motherPV->IsParameterised())
     GateError("The volume "<<motherPV->GetName()<<" is parameterized !"<<Gateendl<<"Please attach the Actor directly on this volume !"<<Gateendl);
-  
-  if(Generation>0)
-    space+="   ";
 
   G4LogicalVolume* motherLV(motherPV->GetLogicalVolume());
-  G4String motherSVName(motherLV->GetSolid()->GetName());
-  G4VSolid* motherSV(GetSV(motherSVName)->Clone());
-
-  double motherProgenyMass(0.);
-  double motherProgenyCubicVolume(0.);
-
-  // Calculation of dosel's local rotation and translation
-  G4RotationMatrix doselRotation(mImage.GetTransformMatrix());
-  G4ThreeVector    doselTranslation(mImage.GetVoxelCenterFromIndex(index));
-
-  if(Generation>0)
-  {
-    doselTranslation-=motherTranslation;
-    doselRotation=doselRotation.transform(motherRotation);
-  }
-
-  // Overlap Mother-Dosel
-  motherSV=new G4IntersectionSolid(motherSV->GetName()+"∩"+doselSV->GetName(),
-                                  doselSV, 
-                                  motherSV,
-                                  &doselRotation, // Local rotation
-                                  doselTranslation); // Local translation
-
-  // If the mother's intersects the voxel. //FIXME
-  if(motherSV->GetCubicVolume()==0.&&motherLV->GetNoDaughters()>0)
-  {
-    //G4cout<<space<<" *** IS NOT IN THE DOSEL N°"<<index<<" ***"<<G4endl;
-    if(Generation>0)
-      space.resize(space.size()-3);
-    return std::make_pair(0.,0.);
-  }
-
-  /*G4cout<<G4endl<<space<<"================================================================"<<G4endl;
-  G4cout<<space<<" * SUMMARY : Mother : "<<motherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
-        <<space<<"    Material           : "<<motherLV->GetMaterial()->GetName()<<G4endl
-        <<space<<"    Density            : "<<G4BestUnit(motherLV->GetMaterial()->GetDensity(),"Volumic Mass")<<G4endl
-        <<space<<"    Original volume    : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"    Overlap volume (with dosel "<<index<<") : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"    Diff volume        : "<<(motherSV->GetCubicVolume()/motherLV->GetSolid()->GetCubicVolume())<<G4endl
-        <<space<<"    Rotation motherPV :"<<G4endl
-        <<space<<"       Relative : Phi="  <<G4BestUnit(motherPV->GetObjectRotationValue().getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(motherPV->GetObjectRotationValue().getTheta(),"Angle")<<G4endl
-        <<space<<"       Absolute : Phi="<<G4BestUnit(motherRotation.getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(motherRotation.getTheta(),"Angle")<<G4endl
-        <<space<<"    Rotation dosel :"<<G4endl
-        <<space<<"       Relative : Phi="  <<G4BestUnit(doselRotation.getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(doselRotation.getTheta(),"Angle")<<G4endl
-        <<space<<"       Absolute : Phi="<<G4BestUnit(mImage.GetTransformMatrix().getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(mImage.GetTransformMatrix().getTheta(),"Angle")<<G4endl;
-    G4cout<<space<<"================================================================"<<G4endl<<G4endl;*/
-
-  // Dosel information dump ////////////////////////////////////////////////
-  /*space+="   ";
-  G4cout<<space<<"* Doxel n°"<<index<<" informations :"<<G4endl
-        <<space<<" --> Translation :"<<G4endl
-        <<space<<"       Relative : X="<<G4BestUnit(doselTranslation.getX(),"Length")
-                                <<",Y="<<G4BestUnit(doselTranslation.getY(),"Length")
-                                <<",Z="<<G4BestUnit(doselTranslation.getZ(),"Length")<<G4endl
-        <<space<<"       Absolute : X="<<G4BestUnit(mImage.GetVoxelCenterFromIndex(index).getX(),"Length")
-                                <<",Y="<<G4BestUnit(mImage.GetVoxelCenterFromIndex(index).getY(),"Length")
-                                <<",Z="<<G4BestUnit(mImage.GetVoxelCenterFromIndex(index).getZ(),"Length")<<G4endl
-        <<space<<" --> Rotation :"<<G4endl
-        <<space<<"       Relative : Phi="  <<doselRotation.getPhi()
-                                <<",Theta="<<doselRotation.getTheta()
-                                <<",Psi="  <<doselRotation.getPsi()<<G4endl
-        <<space<<"       Absolute : Phi="<<mImage.GetTransformMatrix().getPhi()
-                                <<",Theta="<<mImage.GetTransformMatrix().getTheta()
-                                <<",Psi="<<mImage.GetTransformMatrix().getPsi()<<G4endl;
-  space.resize(space.size()-3);*/
-  //////////////////////////////////////////////////////////////////////////
-
-  // Calculation for daughter(s) ///////////////////////////////////////////
-  for(int i=0;i<motherLV->GetNoDaughters();i++)
-  {
-    G4VPhysicalVolume*  daughterPV(motherLV->GetDaughter(i));
-
-    // Calculation of absolute translation and rotation.
-    G4RotationMatrix daughterRotation(daughterPV->GetObjectRotationValue());
-    G4ThreeVector    daughterTranslation(daughterPV->GetObjectTranslation());
-
-    if(Generation>0)
-    {
-      daughterTranslation=motherTranslation+daughterPV->GetObjectTranslation().transform(motherRotation);
-      daughterRotation=daughterRotation.transform(motherRotation);
-    }
-    
-    std::pair<double,double> daughterIteration(VoxelIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation,index));
-    
-    motherProgenyMass+=daughterIteration.first; 
-    motherProgenyCubicVolume+=daughterIteration.second;
-  }
-  //////////////////////////////////////////////////////////////////////////
-
-  // Mother mass & volume //////////////////////////////////////////////////
-  double motherCubicVolume(motherSV->GetCubicVolume());
-  double motherDensity(motherLV->GetMaterial()->GetDensity());
-  double motherMass(motherCubicVolume*motherDensity);
-  motherProgenyMass+=motherMass;
-  motherProgenyCubicVolume+=motherCubicVolume;
-  //////////////////////////////////////////////////////////////////////////
-
-  // Mother information dump ///////////////////////////////////////////////
-  /*G4cout<<space<<"  Mother original volume     : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"  Mother w/o daughters volume: "<<G4BestUnit(motherCubicVolume,"Volume")<<G4endl
-        <<space<<"  Mother  +  daughters volume: "<<G4BestUnit(motherProgenyCubicVolume,"Volume")<<G4endl
-        <<space<<"  Mother Mass                : "<<G4BestUnit(motherMass,"Mass")<<G4endl
-        <<space<<"  Mother  +  daughters mass  : "<<G4BestUnit(motherProgenyMass,"Mass")<<" (MotherProgenyMass)"<<G4endl;*/
-  //////////////////////////////////////////////////////////////////////////
-
-  if(Generation>0)
-    space.resize(space.size()-3);
-
-  return std::make_pair(motherProgenyMass,motherProgenyCubicVolume);
-}
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-std::pair<double,double> GateVoxelizedMass::OldVoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation,const int index)
-{
-  //FIXME : Doesn't work with daughter overlapping its mother.
-
-  if(motherPV->IsParameterised())
-    GateError("The volume "<<motherPV->GetName()<<" is parameterized !"<<Gateendl<<"Please attach the Actor directly on this volume !"<<Gateendl);
-  
-  if(Generation>0)
-    space+="   ";
-
-  G4LogicalVolume* motherLV(motherPV->GetLogicalVolume());
+  G4VSolid* motherSV(motherLV->GetSolid());
   double motherMass(0.);
   double motherDensity(motherLV->GetMaterial()->GetDensity());
   double motherProgenyMass(0.);
   double motherProgenyCubicVolume(0.);
-  G4VSolid* motherSV(motherLV->GetSolid());
-
-
 
   // Calculation of dosel's local rotation and translation
   G4RotationMatrix doselRotation(mImage.GetTransformMatrix());
@@ -581,53 +349,9 @@ std::pair<double,double> GateVoxelizedMass::OldVoxelIteration(G4VPhysicalVolume*
                                   &doselRotation, // Local rotation
                                   doselTranslation); // Local translation
 
-  /*G4cout<<G4endl<<space<<"================================================================"<<G4endl;
-  G4cout<<space<<" * SUMMARY : Mother : "<<motherLV->GetName()<<" (generation n°"<<Generation<<") :"<<G4endl
-        <<space<<"    Material           : "<<motherLV->GetMaterial()->GetName()<<G4endl
-        <<space<<"    Density            : "<<G4BestUnit(motherLV->GetMaterial()->GetDensity(),"Volumic Mass")<<G4endl
-        <<space<<"    Original volume    : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"    Overlap volume (with dosel "<<index<<") : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"    Diff volume        : "<<(motherSV->GetCubicVolume()/motherLV->GetSolid()->GetCubicVolume())<<G4endl
-        <<space<<"    Rotation motherPV :"<<G4endl
-        <<space<<"       Relative : Phi="  <<G4BestUnit(motherPV->GetObjectRotationValue().getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(motherPV->GetObjectRotationValue().getTheta(),"Angle")<<G4endl
-        <<space<<"       Absolute : Phi="<<G4BestUnit(motherRotation.getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(motherRotation.getTheta(),"Angle")<<G4endl
-        <<space<<"    Rotation dosel :"<<G4endl
-        <<space<<"       Relative : Phi="  <<G4BestUnit(doselRotation.getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(doselRotation.getTheta(),"Angle")<<G4endl
-        <<space<<"       Absolute : Phi="<<G4BestUnit(mImage.GetTransformMatrix().getPhi(),"Angle")
-                                <<",Theta="<<G4BestUnit(mImage.GetTransformMatrix().getTheta(),"Angle")<<G4endl;
-    G4cout<<space<<"================================================================"<<G4endl<<G4endl;*/
-
-  // Dosel information dump ////////////////////////////////////////////////
-  /*space+="   ";
-  G4cout<<space<<"* Doxel n°"<<index<<" informations :"<<G4endl
-        <<space<<" --> Translation :"<<G4endl
-        <<space<<"       Relative : X="<<G4BestUnit(doselTranslation.getX(),"Length")
-                                <<",Y="<<G4BestUnit(doselTranslation.getY(),"Length")
-                                <<",Z="<<G4BestUnit(doselTranslation.getZ(),"Length")<<G4endl
-        <<space<<"       Absolute : X="<<G4BestUnit(mImage.GetVoxelCenterFromIndex(index).getX(),"Length")
-                                <<",Y="<<G4BestUnit(mImage.GetVoxelCenterFromIndex(index).getY(),"Length")
-                                <<",Z="<<G4BestUnit(mImage.GetVoxelCenterFromIndex(index).getZ(),"Length")<<G4endl
-        <<space<<" --> Rotation :"<<G4endl
-        <<space<<"       Relative : Phi="  <<doselRotation.getPhi()
-                                <<",Theta="<<doselRotation.getTheta()
-                                <<",Psi="  <<doselRotation.getPsi()<<G4endl
-        <<space<<"       Absolute : Phi="<<mImage.GetTransformMatrix().getPhi()
-                                <<",Theta="<<mImage.GetTransformMatrix().getTheta()
-                                <<",Psi="<<mImage.GetTransformMatrix().getPsi()<<G4endl;
-  space.resize(space.size()-3);*/
-  //////////////////////////////////////////////////////////////////////////
-
-  // If the mother's intersects the voxel.
+  // If the mother's doesn't intersects the dosel
   if(motherSV->GetCubicVolume()==0.)
-  {
-    //G4cout<<space<<" *** IS NOT IN THE DOSEL N°"<<index<<" ***"<<G4endl;
-    if(Generation>0)
-      space.resize(space.size()-3);
     return std::make_pair(0.,0.);
-  }
 
   // Calculation for daughter(s) ///////////////////////////////////////////
   if(motherLV->GetNoDaughters()>0) 
@@ -647,17 +371,16 @@ std::pair<double,double> GateVoxelizedMass::OldVoxelIteration(G4VPhysicalVolume*
                                       daughterSV,
                                       &daughterRotation, // Local rotation
                                       daughterTranslation); // Local translation
-
-      //G4cout<<space<<"  Mother-daughter overlap volume     : "<<G4BestUnit(motherSV->GetCubicVolume(),"Volume")<<G4endl;
     
-      // Absolute translation and rotation.
+      // Daughter absolute translation and rotation
       if(Generation>0)
       {
         daughterTranslation=motherTranslation+daughterPV->GetObjectTranslation().transform(motherRotation);
         daughterRotation=daughterRotation.transform(motherRotation);
       }
 
-      std::pair<double,double> daughterIteration(OldVoxelIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation,index));
+      std::pair<double,double> daughterIteration(VoxelIteration(daughterPV,Generation+1,daughterRotation,daughterTranslation,index));
+
       motherProgenyMass+=daughterIteration.first; 
       motherProgenyCubicVolume+=daughterIteration.second;
     }
@@ -671,17 +394,35 @@ std::pair<double,double> GateVoxelizedMass::OldVoxelIteration(G4VPhysicalVolume*
   motherProgenyCubicVolume+=motherCubicVolume;
   //////////////////////////////////////////////////////////////////////////
 
-  // Mother information dump ///////////////////////////////////////////////
-  /*G4cout<<space<<"  Mother original volume     : "<<G4BestUnit(motherLV->GetSolid()->GetCubicVolume(),"Volume")<<G4endl
-        <<space<<"  Mother w/o daughters volume: "<<G4BestUnit(motherCubicVolume,"Volume")<<G4endl
-        <<space<<"  Mother  +  daughters volume: "<<G4BestUnit(motherProgenyCubicVolume,"Volume")<<G4endl
-        <<space<<"  Mother Mass                : "<<G4BestUnit(motherMass,"Mass")<<G4endl
-        <<space<<"  Mother  +  daughters mass  : "<<G4BestUnit(motherProgenyMass,"Mass")<<" (MotherProgenyMass)"<<G4endl;*/
+  // Saving ////////////////////////////////////////////////////////////////
+  mCubicVolume.push_back(std::make_pair(motherSV->GetName(),motherCubicVolume));
+  mMass.push_back       (std::make_pair(motherSV->GetName(),motherMass));
   //////////////////////////////////////////////////////////////////////////
 
-  if(Generation>0)
-    space.resize(space.size()-3);
-
   return std::make_pair(motherProgenyMass,motherProgenyCubicVolume);
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+double GateVoxelizedMass::GetPartialVolume(const G4String SVName)
+{
+  for(size_t i=0;i<mCubicVolume.size();i++)
+    if(mCubicVolume[i].first==SVName)
+      return mCubicVolume[i].second;
+
+  GateError("GateVoxelizedMass::GetPartialVolume : Can't find "<<SVName<<Gateendl);
+  return -1.;
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+double GateVoxelizedMass::GetPartialMass(const G4String SVName)
+{
+  for(size_t i=0;i<mMass.size();i++)
+    if(mMass[i].first==SVName)
+      return mMass[i].second;
+
+  GateError("GateVoxelizedMass::GetPartialMass : Can't find "<<SVName<<Gateendl);
+  return -1.;
 }
 //-----------------------------------------------------------------------------

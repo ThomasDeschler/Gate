@@ -163,7 +163,9 @@ void GateTLEDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* 
   G4StepPoint *PostStep(step->GetPostStepPoint());
   G4ThreeVector prePosition=PreStep->GetPosition();
   G4ThreeVector postPosition=PostStep->GetPosition();
-  if(step->GetTrack()->GetDefinition()->GetParticleName() == "gamma"){
+
+  if(step->GetTrack()->GetDefinition()->GetParticleName() == "gamma")
+  {
     G4double distance = step->GetStepLength();
     G4double energy = PreStep->GetKineticEnergy();
     double muenOverRho = mMaterialHandler->GetMuEnOverRho(PreStep->GetMaterialCutsCouple(), energy);
@@ -171,7 +173,8 @@ void GateTLEDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* 
     //G4double dose = ConversionFactor*energy*muenOverRho*distance/VoxelVolume;
     G4double dose = ConversionFactor*energy*muenOverRho*distance/mDoseImage.GetVoxelVolume();
     if(mIsNewMassEnabled)
-      dose = ConversionFactor*energy*muen*distance/(pVoxelizedMass.GetVoxelMass(index)*g);
+      dose = ConversionFactor*energy*muen*distance/pVoxelizedMass.GetVoxelMass(index)/g;
+
     G4double edep = 0.1*energy*muenOverRho*distance*PreStep->GetMaterial()->GetDensity()/(g/cm3);
     bool sameEvent=true;
 

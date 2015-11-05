@@ -166,7 +166,7 @@ void GateDoseActor::Construct() {
   if (mIsNewMassEnabled) {
     mMassImage.SetResolutionAndHalfSize(mResolution, mHalfSize, mPosition);
     mMassImage.Allocate();
-    pVoxelizedMass.Initialize(mVolumeName,mMassImage);
+    mVoxelizedMass.Initialize(mVolumeName,mMassImage);
   }
 
 
@@ -300,18 +300,13 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
   //G4cout<<"Test :"<<mInputNewMass<<G4endl;
 
   if(mIsNewMassEnabled)
-    density = pVoxelizedMass.GetVoxelMass(index)/mDoseImage.GetVoxelVolume();
+    density = mVoxelizedMass.GetVoxelMass(index)/mDoseImage.GetVoxelVolume();
 
 
-  if (mIsDoseImageEnabled) {
-
+  if (mIsDoseImageEnabled)
+  {
     // ------------------------------------
     // Convert deposited energy into Gray
-
-    // OLD version (correct but not clear)
-    // dose = edep/density*1e12/mDoseImage.GetVoxelVolume();
-
-    // NEW version (same results but more clear)
     dose = edep/density/mDoseImage.GetVoxelVolume()/gray;
     // ------------------------------------
 

@@ -11,13 +11,13 @@ See GATE/LICENSE.txt for further details
   \class  GateDoseActor
   \author thibault.frisson@creatis.insa-lyon.fr
           laurent.guigues@creatis.insa-lyon.fr
-	  david.sarrut@creatis.insa-lyon.fr
+	        david.sarrut@creatis.insa-lyon.fr
 
-	  DoseToWater option added by Loïc Grevillot
+	  - DoseToWater option added by Loïc Grevillot
+    - Dose calculation in inhomogeneous volume added by Thomas Deschler (thomas.deschler@iphc.cnrs.fr)
   \date	March 2011
  */
 
-  // WORK IN PROGRESS (september 2015) : Dose calculation in inhomogeneous volume added by Thomas DESCHLER (thomas.deschler@iphc.cnrs.fr)
 
 #ifndef GATEDOSEACTOR_HH
 #define GATEDOSEACTOR_HH
@@ -82,7 +82,7 @@ class GateDoseActor : public GateVImageActor
 protected:
   GateDoseActor(G4String name, G4int depth=0);
   GateDoseActorMessenger * pMessenger;
-  GateVoxelizedMass pVoxelizedMass;
+  GateVoxelizedMass mVoxelizedMass;
 
   int mCurrentEvent;
   StepHitType mUserStepHitType;
