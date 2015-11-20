@@ -41,8 +41,7 @@ GateDoseActor::GateDoseActor(G4String name, G4int depth):
   mIsNumberOfHitsImageEnabled = false;
   mIsDoseNormalisationEnabled = false;
   mIsDoseToWaterNormalisationEnabled = false;
-  mIsNewMassEnabled = false;
-  mInputNewMass = "";
+  mDoseAlgorithm = "VolumeWeighting";
 
   pMessenger = new GateDoseActorMessenger(this);
   GateDebugMessageDec("Actor",4,"GateDoseActor() -- end\n");
@@ -163,13 +162,17 @@ void GateDoseActor::Construct() {
     mNumberOfHitsImage.SetResolutionAndHalfSize(mResolution, mHalfSize, mPosition);
     mNumberOfHitsImage.Allocate();
   }
-  if (mIsNewMassEnabled) {
+
+  if (mDoseAlgorithm!="MassWeighting"&&mDoseAlgorithm!="VolumeMax")
+    mDoseAlgorithm="VolumeWeighting";
+
+  if (mDoseAlgorithm=="MassWeighting"||mDoseAlgorithm=="VolumeMax")
+  {
+    G4cout<<"test"<<G4endl;
     mMassImage.SetResolutionAndHalfSize(mResolution, mHalfSize, mPosition);
     mMassImage.Allocate();
     mVoxelizedMass.Initialize(mVolumeName,mMassImage);
   }
-
-
 
   // Print information
   GateMessage("Actor", 1,
@@ -179,13 +182,13 @@ void GateDoseActor::Construct() {
               "\tDose uncertainty  = " << mIsDoseUncertaintyImageEnabled << Gateendl <<
               "\tDose to water image        = " << mIsDoseToWaterImageEnabled << Gateendl <<
               "\tDose to water squared      = " << mIsDoseToWaterSquaredImageEnabled << Gateendl <<
-              "\tDose to wateruncertainty  = " << mIsDoseToWaterUncertaintyImageEnabled << Gateendl <<
+              "\tDose to water uncertainty  = " << mIsDoseToWaterUncertaintyImageEnabled << Gateendl <<
               "\tEdep image        = " << mIsEdepImageEnabled << Gateendl <<
               "\tEdep squared      = " << mIsEdepSquaredImageEnabled << Gateendl <<
               "\tEdep uncertainty  = " << mIsEdepUncertaintyImageEnabled << Gateendl <<
               "\tNumber of hit     = " << mIsNumberOfHitsImageEnabled << Gateendl <<
               "\t     (last hit)   = " << mIsLastHitEventImageEnabled << Gateendl <<
-              "\tNew mass calculation = " << mIsNewMassEnabled << Gateendl <<
+              "\tDose algorithm    = " << mDoseAlgorithm << Gateendl <<
               "\tEdepFilename      = " << mEdepFilename << Gateendl <<
               "\tDoseFilename      = " << mDoseFilename << Gateendl <<
               "\tNb Hits filename  = " << mNbOfHitsFilename << Gateendl);
@@ -233,7 +236,7 @@ void GateDoseActor::ResetData() {
   if (mIsDoseImageEnabled) mDoseImage.Reset();
   if (mIsDoseToWaterImageEnabled) mDoseToWaterImage.Reset();
   if (mIsNumberOfHitsImageEnabled) mNumberOfHitsImage.Fill(0);
-  if (mIsNewMassEnabled) mMassImage.Fill(0);
+  if (mDoseAlgorithm=="MassWeighting"||mDoseAlgorithm=="VolumeMax") mMassImage.Fill(0);
 }
 //-----------------------------------------------------------------------------
 
@@ -295,12 +298,23 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
   }
 
   double dose=0.;
+
+  //---------------------------------------------------------------------------------
+  // Volume weighting
   double density = step->GetPreStepPoint()->GetMaterial()->GetDensity();
+  //---------------------------------------------------------------------------------
 
-  //G4cout<<"Test :"<<mInputNewMass<<G4endl;
-
-  if(mIsNewMassEnabled)
+  //---------------------------------------------------------------------------------
+  // Mass weighting
+  if(mDoseAlgorithm=="MassWeighting")
     density = mVoxelizedMass.GetVoxelMass(index)/mDoseImage.GetVoxelVolume();
+  //---------------------------------------------------------------------------------
+
+  //---------------------------------------------------------------------------------
+  // Mass weighting
+  else if(mDoseAlgorithm=="VolumeMax")
+   mVoxelizedMass.SetEdep(index,step->GetPreStepPoint()->GetPhysicalVolume()->GetLogicalVolume()->GetSolid()->GetName(),edep);
+  //---------------------------------------------------------------------------------
 
 
   if (mIsDoseImageEnabled)
@@ -368,13 +382,19 @@ void GateDoseActor::UserSteppingActionInVoxel(const int index, const G4Step* ste
 
 
 
-  if (mIsDoseImageEnabled) {
-
-    if (mIsDoseUncertaintyImageEnabled || mIsDoseSquaredImageEnabled) {
-      if (sameEvent) mDoseImage.AddTempValue(index, dose);
-      else mDoseImage.AddValueAndUpdate(index, dose);
+  if (mIsDoseImageEnabled)
+  {
+    if (mDoseAlgorithm=="VolumeMax")
+      mDoseImage.SetValue(index, mVoxelizedMass.GetMaxDose(index)/gray);
+    else
+    {
+      if (mIsDoseUncertaintyImageEnabled || mIsDoseSquaredImageEnabled)
+      {
+        if (sameEvent) mDoseImage.AddTempValue(index, dose);
+        else mDoseImage.AddValueAndUpdate(index, dose);
+      }
+      else mDoseImage.AddValue(index, dose);
     }
-    else mDoseImage.AddValue(index, dose);
   }
 
   if (mIsDoseToWaterImageEnabled) {

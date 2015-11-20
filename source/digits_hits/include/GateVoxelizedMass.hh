@@ -40,8 +40,12 @@ class GateVoxelizedMass
   virtual void GenerateDosels(const int index);
   virtual std::pair<double,double> ParameterizedVolume(const int index);
   virtual std::pair<double,double> VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix MotherRotation,G4ThreeVector MotherTranslation,const int index);
-  virtual double GetPartialVolume(const G4String SVName);
-  virtual double GetPartialMass(const G4String SVName);
+  double GetPartialVolume(const int index,const G4String SVName);
+  double GetTotalVolume();
+  double GetPartialMass(const int index,const G4String SVName);
+  int GetNumberOfVolumes(const int index);
+  void SetEdep(const int index,const G4String SVName,const double Edep);
+  double GetMaxDose(const int index);
 
  protected:
 
@@ -56,8 +60,9 @@ class GateVoxelizedMass
 
   std::pair<double,double> doselReconstructedData;
 
-  std::vector<std::pair<G4String,double> > mCubicVolume;
-  std::vector<std::pair<G4String,double> > mMass;
+  std::vector<std::vector<std::pair<G4String,double> > > mCubicVolume;
+  std::vector<std::vector<std::pair<G4String,double> > > mMass;
+  std::vector<std::vector<std::pair<G4String,double> > > mEdep;
 
   std::vector<double> doselReconstructedCubicVolume;
   std::vector<double> doselReconstructedMass;

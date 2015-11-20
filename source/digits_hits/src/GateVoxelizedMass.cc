@@ -32,6 +32,17 @@ void GateVoxelizedMass::Initialize(const G4String mExtVolumeName, const GateImag
   mIsParameterised=false;
   mIsVecGenerated=false;
 
+  mCubicVolume.resize(mImage.GetNumberOfValues());
+  mMass.resize(mImage.GetNumberOfValues());
+  mEdep.resize(mImage.GetNumberOfValues());
+  for(int index=0 ; index<mImage.GetNumberOfValues() ; index++)
+  {
+    mCubicVolume[index].clear();
+    mMass[index].clear();
+    mEdep[index].clear();
+  }
+
+
   DAPV=G4PhysicalVolumeStore::GetInstance()->GetVolume(mVolumeName+"_phys");
   DALV=DAPV->GetLogicalVolume();
 
@@ -57,6 +68,8 @@ void GateVoxelizedMass::Initialize(const G4String mExtVolumeName, const GateImag
 //-----------------------------------------------------------------------------
 double GateVoxelizedMass::GetVoxelMass(const int index)
 {
+  //G4cout<<"GetVoxelMass started !"<<G4endl;
+
   if(doselReconstructedMass[index]==-1.)
   {
     if(mIsParameterised)
@@ -321,6 +334,7 @@ std::pair<double,double> GateVoxelizedMass::ParameterizedVolume(const int index)
 std::pair<double,double> GateVoxelizedMass::VoxelIteration(G4VPhysicalVolume* motherPV,const int Generation,G4RotationMatrix motherRotation,G4ThreeVector motherTranslation,const int index)
 {
   //FIXME : Doesn't work with daughter overlapping its mother.
+  //G4cout<<"VoxelIteration started !"<<G4endl;
 
   if(motherPV->IsParameterised())
     GateError("The volume "<<motherPV->GetName()<<" is parameterized !"<<Gateendl<<"Please attach the Actor directly on this volume !"<<Gateendl);
@@ -343,7 +357,7 @@ std::pair<double,double> GateVoxelizedMass::VoxelIteration(G4VPhysicalVolume* mo
   }
 
   // Overlap Mother-Dosel
-  motherSV=new G4IntersectionSolid(motherSV->GetName()+"∩"+doselSV->GetName(),
+  motherSV=new G4IntersectionSolid(motherSV->GetName(),//+"∩"+doselSV->GetName(),
                                   doselSV, 
                                   motherSV,
                                   &doselRotation, // Local rotation
@@ -366,7 +380,7 @@ std::pair<double,double> GateVoxelizedMass::VoxelIteration(G4VPhysicalVolume* mo
       G4ThreeVector    daughterTranslation(daughterPV->GetObjectTranslation());
 
       // Substraction Mother-Daughter
-      motherSV=new G4SubtractionSolid(motherSV->GetName()+"-"+daughterSV->GetName(),
+      motherSV=new G4SubtractionSolid(motherSV->GetName(),//+"-"+daughterSV->GetName(),
                                       motherSV, // Already overlapped with voxel volume
                                       daughterSV,
                                       &daughterRotation, // Local rotation
@@ -395,8 +409,8 @@ std::pair<double,double> GateVoxelizedMass::VoxelIteration(G4VPhysicalVolume* mo
   //////////////////////////////////////////////////////////////////////////
 
   // Saving ////////////////////////////////////////////////////////////////
-  mCubicVolume.push_back(std::make_pair(motherSV->GetName(),motherCubicVolume));
-  mMass.push_back       (std::make_pair(motherSV->GetName(),motherMass));
+  mCubicVolume[index].push_back(std::make_pair(motherSV->GetName(),motherCubicVolume));
+  mMass[index].push_back       (std::make_pair(motherSV->GetName(),motherMass));
   //////////////////////////////////////////////////////////////////////////
 
   return std::make_pair(motherProgenyMass,motherProgenyCubicVolume);
@@ -404,25 +418,78 @@ std::pair<double,double> GateVoxelizedMass::VoxelIteration(G4VPhysicalVolume* mo
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-double GateVoxelizedMass::GetPartialVolume(const G4String SVName)
+double GateVoxelizedMass::GetPartialVolume(const int index,const G4String SVName)
 {
-  for(size_t i=0;i<mCubicVolume.size();i++)
-    if(mCubicVolume[i].first==SVName)
-      return mCubicVolume[i].second;
+  if(mCubicVolume[index].empty())
+    GetVoxelMass(index);
 
-  GateError("GateVoxelizedMass::GetPartialVolume : Can't find "<<SVName<<Gateendl);
+  for(size_t i=0;i<mCubicVolume[index].size();i++)
+    if(mCubicVolume[index][i].first==SVName)
+      return mCubicVolume[index][i].second;
+
+  GateError("!!! ERROR : GateVoxelizedMass::GetPartialVolume : Can't find "<<SVName<<" inside the dosel n°"<<index<<" !"<<Gateendl);
   return -1.;
 }
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
-double GateVoxelizedMass::GetPartialMass(const G4String SVName)
+double GateVoxelizedMass::GetPartialMass(const int index,const G4String SVName)
 {
-  for(size_t i=0;i<mMass.size();i++)
-    if(mMass[i].first==SVName)
-      return mMass[i].second;
+  if(mMass[index].empty())
+    GetVoxelMass(index);
 
-  GateError("GateVoxelizedMass::GetPartialMass : Can't find "<<SVName<<Gateendl);
+  for(size_t i=0;i<mMass[index].size();i++)
+    if(mMass[index][i].first==SVName)
+      return mMass[index][i].second;
+
+  GateError("!!! ERROR : GateVoxelizedMass::GetPartialMass : Can't find "<<SVName<<" inside the dosel n°"<<index<<" !"<<Gateendl);
   return -1.;
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+int GateVoxelizedMass::GetNumberOfVolumes(const int index)
+{
+ return mMass[index].size();
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+double GateVoxelizedMass::GetTotalVolume()
+{
+  return mImage.GetVoxelVolume();
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+void GateVoxelizedMass::SetEdep(const int index,const G4String SVName,const double edep)
+{
+  bool ok(false);
+  for(size_t i=0;i<mEdep[index].size();i++)
+    if(mEdep[index][i].first==SVName)
+    {
+      ok=true;
+      mEdep[index][i].second+=edep;
+    }
+
+  if(!ok)
+    mEdep[index].push_back(std::make_pair(SVName,edep));
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+double GateVoxelizedMass::GetMaxDose(const int index)
+{
+  double edepmax(0.);
+  G4String SVName("");
+
+  for(size_t i=0;i<mEdep[index].size();i++)
+    if(mEdep[index][i].second>edepmax)
+    {
+      SVName=mEdep[index][i].first;
+      edepmax=mEdep[index][i].second;
+    }
+
+  return edepmax/GetPartialMass(index,SVName);
 }
 //-----------------------------------------------------------------------------

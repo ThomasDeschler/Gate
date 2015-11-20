@@ -32,8 +32,7 @@ GateDoseActorMessenger::GateDoseActorMessenger(GateDoseActor* sensor)
   pEnableEdepSquaredCmd= 0;
   pEnableEdepUncertaintyCmd= 0;
   pEnableNumberOfHitsCmd= 0;
-  pEnableNewMassCmd= 0;
-  pInputNewMassCmd= 0;
+  pSetDoseAlgorithmCmd= 0;
 
   BuildCommands(baseName+sensor->GetObjectName());
 }
@@ -56,8 +55,7 @@ GateDoseActorMessenger::~GateDoseActorMessenger()
   if(pEnableEdepSquaredCmd) delete pEnableEdepSquaredCmd;
   if(pEnableEdepUncertaintyCmd) delete pEnableEdepUncertaintyCmd;
   if(pEnableNumberOfHitsCmd) delete pEnableNumberOfHitsCmd;
-  if(pEnableNewMassCmd) delete pEnableNewMassCmd;
-  if(pInputNewMassCmd) delete pInputNewMassCmd;
+  if(pSetDoseAlgorithmCmd) delete pSetDoseAlgorithmCmd;
 }
 //-----------------------------------------------------------------------------
 
@@ -131,15 +129,11 @@ void GateDoseActorMessenger::BuildCommands(G4String base)
   guid = G4String("Enable number of hits computation");
   pEnableNumberOfHitsCmd->SetGuidance(guid);
 
-  n = base+"/enableNewMass";
-  pEnableNewMassCmd = new G4UIcmdWithABool(n, this);
-  guid = G4String("Enable the new mass calculation algorithm");
-  pEnableNewMassCmd->SetGuidance(guid);
-
-  n = base+"/inputNewMass";
-  pInputNewMassCmd = new G4UIcmdWithAString(n, this);
-  guid = G4String("Input file path for the new mass calculation algorithm");
-  pInputNewMassCmd->SetGuidance(guid);
+  n = base+"/setDoseAlgorithm";
+  pSetDoseAlgorithmCmd = new G4UIcmdWithAString(n, this);
+  guid = G4String("Set the alogrithm used in the dose calculation");
+  pSetDoseAlgorithmCmd->SetGuidance(guid);
+  pSetDoseAlgorithmCmd->SetParameterName("Dose algorithm",false);
 }
 //-----------------------------------------------------------------------------
 
@@ -162,11 +156,10 @@ void GateDoseActorMessenger::SetNewValue(G4UIcommand* cmd, G4String newValue)
   if (cmd == pEnableDoseNormToIntegralCmd) pDoseActor->EnableDoseNormalisationToIntegral(pEnableDoseNormToIntegralCmd->GetNewBoolValue(newValue));
   if (cmd == pEnableDoseToWaterNormCmd) pDoseActor->EnableDoseToWaterNormalisation(pEnableDoseToWaterNormCmd->GetNewBoolValue(newValue));
 
-  if (cmd == pEnableNewMassCmd) pDoseActor->EnableNewMass(pEnableNewMassCmd->GetNewBoolValue(newValue));
-  if (cmd == pInputNewMassCmd) pDoseActor->InputNewMass(newValue);
+  if (cmd == pSetDoseAlgorithmCmd) pDoseActor->SetDoseAlogithm(newValue);
 
   GateImageActorMessenger::SetNewValue( cmd, newValue);
 }
 //-----------------------------------------------------------------------------
 
-#endif /* end #define GATEDOSEACTORMESSENGER_CC */
+#endif 
