@@ -21,16 +21,16 @@
 //-----------------------------------------------------------------------------------------------
 // Constructor
 GateCutTubs::GateCutTubs(const G4String& itsName,
-                               const G4String& itsMaterialName,
-                               G4double itsInnerR,
-                               G4double itsOuterR,
-                               G4double itsStartPhi,
-                               G4double itsDeltaPhi,
-                               G4double itsZLength,
-                               G4ThreeVector itsNegNorm,
-                               G4ThreeVector itsPosNorm,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                         const G4String& itsMaterialName,
+                         G4double itsInnerR,
+                         G4double itsOuterR,
+                         G4double itsStartPhi,
+                         G4double itsDeltaPhi,
+                         G4double itsZLength,
+                         G4ThreeVector itsNegNorm,
+                         G4ThreeVector itsPosNorm,
+                         G4bool acceptsChildren,
+                         G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_cuttubs_solid(0), m_cuttubs_log(0),
   m_innerR(itsInnerR), m_outerR(itsOuterR),
@@ -46,8 +46,8 @@ GateCutTubs::GateCutTubs(const G4String& itsName,
 //-----------------------------------------------------------------------------------------------
 // Constructor with default values
 GateCutTubs::GateCutTubs(const G4String& itsName,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                         G4bool acceptsChildren,
+                         G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_cuttubs_solid(0), m_cuttubs_log(0),
   m_innerR(1.0*cm), m_outerR(2.0*cm),
@@ -56,7 +56,7 @@ GateCutTubs::GateCutTubs(const G4String& itsName,
   m_negNorm(0,0,-1), m_posNorm(0,0,1),
   m_Messenger(0)
 {
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateCutTubsMessenger(this);
 }
 

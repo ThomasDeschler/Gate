@@ -31,9 +31,9 @@ GateGeneralTrpd::GateGeneralTrpd(const G4String& itsName, const G4String& itsMat
                                  G4double itsAlp1,     G4double itsAlp2,
                                  G4bool itsFlagAcceptChildren,
                                  G4int depth)
-  : GateVVolume(itsName,itsFlagAcceptChildren, depth),
-    m_general_trpd_solid(0), m_general_trpd_log(0),
-    m_Messenger(0)
+ : GateVVolume(itsName,itsFlagAcceptChildren, depth),
+   m_general_trpd_solid(0), m_general_trpd_log(0),
+   m_Messenger(0)
 {
   m_Messenger = new GateGeneralTrpdMessenger(this);
   m_X1= itsX1Length;
@@ -47,7 +47,7 @@ GateGeneralTrpd::GateGeneralTrpd(const G4String& itsName, const G4String& itsMat
   m_Phi= itsPhi;
   m_Alp1= itsAlp1;
   m_Alp2= itsAlp2;
-  
+
   SetMaterialName(itsMaterialName);
 }
 //------------------------------------------------------------------------------------------------
@@ -56,11 +56,11 @@ GateGeneralTrpd::GateGeneralTrpd(const G4String& itsName, const G4String& itsMat
 GateGeneralTrpd::GateGeneralTrpd(const G4String& itsName,
                                  G4bool itsFlagAcceptChildren,
                                  G4int depth)
-  : GateVVolume(itsName, itsFlagAcceptChildren, depth),
-    m_general_trpd_solid(0), m_general_trpd_log(0),pGeneralTrpdPhys(0),
-    m_Messenger(0)
+ : GateVVolume(itsName, itsFlagAcceptChildren, depth),
+   m_general_trpd_solid(0), m_general_trpd_log(0),pGeneralTrpdPhys(0),
+   m_Messenger(0)
 {
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateGeneralTrpdMessenger(this);
   m_X1= 0.;
   m_X2= 0.;
@@ -72,7 +72,7 @@ GateGeneralTrpd::GateGeneralTrpd(const G4String& itsName,
   m_Theta= 0.;
   m_Phi= 0.;
   m_Alp1= 0.;
-  m_Alp2= 0.;  
+  m_Alp2= 0.;
 }
 //------------------------------------------------------------------------------------------------
 

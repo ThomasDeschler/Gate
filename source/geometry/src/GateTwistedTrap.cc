@@ -21,20 +21,20 @@
 //-----------------------------------------------------------------------------------------------
 // Constructor
 GateTwistedTrap::GateTwistedTrap(const G4String& itsName,
-                               const G4String& itsMaterialName,
-                               G4double itsZLength,
-                               G4double itsYMinusLength,
-                               G4double itsYPlusLength,
-                               G4double itsX1MinusLength,
-                               G4double itsX2MinusLength,
-                               G4double itsX1PlusLength,
-                               G4double itsX2PlusLength,
-                               G4double itsTwistAngle,
-                               G4double itsPolarAngle,
-                               G4double itsAzimuthalAngle,
-                               G4double itsTiltAngle,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                 const G4String& itsMaterialName,
+                                 G4double itsZLength,
+                                 G4double itsYMinusLength,
+                                 G4double itsYPlusLength,
+                                 G4double itsX1MinusLength,
+                                 G4double itsX2MinusLength,
+                                 G4double itsX1PlusLength,
+                                 G4double itsX2PlusLength,
+                                 G4double itsTwistAngle,
+                                 G4double itsPolarAngle,
+                                 G4double itsAzimuthalAngle,
+                                 G4double itsTiltAngle,
+                                 G4bool acceptsChildren,
+                                 G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_twistedtrap_solid(0), m_twistedtrap_log(0),
   m_zLength(itsZLength),
@@ -57,8 +57,8 @@ GateTwistedTrap::GateTwistedTrap(const G4String& itsName,
 //-----------------------------------------------------------------------------------------------
 // Constructor with default values
 GateTwistedTrap::GateTwistedTrap(const G4String& itsName,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                 G4bool acceptsChildren,
+                                 G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_twistedtrap_solid(0), m_twistedtrap_log(0),
   m_zLength(1.0*cm),
@@ -74,7 +74,7 @@ GateTwistedTrap::GateTwistedTrap(const G4String& itsName,
   m_tiltAngle(45*degree),
   m_Messenger(0)
 {
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateTwistedTrapMessenger(this);
 }
 

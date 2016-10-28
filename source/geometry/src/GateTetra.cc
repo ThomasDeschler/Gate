@@ -19,13 +19,13 @@
 //-----------------------------------------------------------------------------------------------
 // Constructor
 GateTetra::GateTetra(const G4String& itsName,
-                               const G4String& itsMaterialName,
-                               G4ThreeVector itsP1,
-                               G4ThreeVector itsP2,
-                               G4ThreeVector itsP3,
-                               G4ThreeVector itsP4,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                     const G4String& itsMaterialName,
+                     G4ThreeVector itsP1,
+                     G4ThreeVector itsP2,
+                     G4ThreeVector itsP3,
+                     G4ThreeVector itsP4,
+                     G4bool acceptsChildren,
+                     G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_tetra_solid(0), m_tetra_log(0),
   m_p1(itsP1),m_p2(itsP2),m_p3(itsP3),m_p4(itsP4),
@@ -38,8 +38,8 @@ GateTetra::GateTetra(const G4String& itsName,
 //-----------------------------------------------------------------------------------------------
 // Constructor with default values
 GateTetra::GateTetra(const G4String& itsName,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                     G4bool acceptsChildren,
+                     G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_tetra_solid(0), m_tetra_log(0),
   m_p1(0.0*cm, 0.0*cm, 1.0*cm),
@@ -48,7 +48,7 @@ GateTetra::GateTetra(const G4String& itsName,
   m_p4(0.0*cm, 0.0*cm, 0.0*cm),
   m_Messenger(0)
 {
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateTetraMessenger(this);
 }
 

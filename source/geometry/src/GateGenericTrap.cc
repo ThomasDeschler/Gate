@@ -20,11 +20,11 @@
 //-----------------------------------------------------------------------------------------------
 // Constructor
 GateGenericTrap::GateGenericTrap(const G4String& itsName,
-                               const G4String& itsMaterialName,
-                               std::vector<G4TwoVector> itsVertices,
-                               G4double itsZLength,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                 const G4String& itsMaterialName,
+                                 std::vector<G4TwoVector> itsVertices,
+                                 G4double itsZLength,
+                                 G4bool acceptsChildren,
+                                 G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_generictrap_solid(0), m_generictrap_log(0),
   m_zLength(itsZLength),
@@ -38,15 +38,15 @@ GateGenericTrap::GateGenericTrap(const G4String& itsName,
 //-----------------------------------------------------------------------------------------------
 // Constructor with default values
 GateGenericTrap::GateGenericTrap(const G4String& itsName,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                 G4bool acceptsChildren,
+                                 G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_generictrap_solid(0), m_generictrap_log(0),
   m_zLength(1.0*cm),
   m_Messenger(0)
 {
   m_vertices.resize(8);
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateGenericTrapMessenger(this);
 }
 

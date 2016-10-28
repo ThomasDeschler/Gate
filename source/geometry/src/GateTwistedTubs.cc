@@ -21,16 +21,16 @@
 //-----------------------------------------------------------------------------------------------
 // Constructor
 GateTwistedTubs::GateTwistedTubs(const G4String& itsName,
-                               const G4String& itsMaterialName,
-                               G4double itsTwistAngle,
-                               G4double itsInnerR,
-                               G4double itsOuterR,
-                               G4double itsNegZ,
-                               G4double itsPosZ,
-                               G4int itsNSegment,
-                               G4double itsTotalPhi,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                 const G4String& itsMaterialName,
+                                 G4double itsTwistAngle,
+                                 G4double itsInnerR,
+                                 G4double itsOuterR,
+                                 G4double itsNegZ,
+                                 G4double itsPosZ,
+                                 G4int itsNSegment,
+                                 G4double itsTotalPhi,
+                                 G4bool acceptsChildren,
+                                 G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_twistedtubs_solid(0), m_twistedtubs_log(0),
   m_twistAngle(itsTwistAngle),
@@ -46,8 +46,8 @@ GateTwistedTubs::GateTwistedTubs(const G4String& itsName,
 //-----------------------------------------------------------------------------------------------
 // Constructor with default values
 GateTwistedTubs::GateTwistedTubs(const G4String& itsName,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                 G4bool acceptsChildren,
+                                 G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_twistedtubs_solid(0), m_twistedtubs_log(0),
   m_twistAngle(45*degree),
@@ -56,7 +56,7 @@ GateTwistedTubs::GateTwistedTubs(const G4String& itsName,
   m_nSegment(1), m_totalPhi(90*degree),
   m_Messenger(0)
 {
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateTwistedTubsMessenger(this);
 }
 

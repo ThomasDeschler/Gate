@@ -21,13 +21,13 @@
 //-----------------------------------------------------------------------------------------------
 // Constructor
 GateEllipticalCone::GateEllipticalCone(const G4String& itsName,
-                               const G4String& itsMaterialName,
-                               G4double itsXSemiAxis,
-                               G4double itsYSemiAxis,
-                               G4double itsZLength,
-                               G4double itsZCut,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                       const G4String& itsMaterialName,
+                                       G4double itsXSemiAxis,
+                                       G4double itsYSemiAxis,
+                                       G4double itsZLength,
+                                       G4double itsZCut,
+                                       G4bool acceptsChildren,
+                                       G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_ellipticalcone_solid(0), m_ellipticalcone_log(0),
   m_xSemiAxis(itsXSemiAxis), m_ySemiAxis(itsYSemiAxis),
@@ -41,15 +41,15 @@ GateEllipticalCone::GateEllipticalCone(const G4String& itsName,
 //-----------------------------------------------------------------------------------------------
 // Constructor with default values
 GateEllipticalCone::GateEllipticalCone(const G4String& itsName,
-                               G4bool acceptsChildren,
-                               G4int depth)
+                                       G4bool acceptsChildren,
+                                       G4int depth)
 : GateVVolume(itsName, acceptsChildren, depth),
   m_ellipticalcone_solid(0), m_ellipticalcone_log(0),
   m_xSemiAxis(1.0*cm), m_ySemiAxis(2.0*cm),
   m_zLength(1.0*cm), m_zCut(1.0*cm),
   m_Messenger(0)
 {
-  SetMaterialName("Vacuum");
+  SetMaterialName("G4_Galactic"); // G4_Galactic used instead of Vacuum who was never defined anywhere
   m_Messenger = new GateEllipticalConeMessenger(this);
 }
 
